@@ -636,7 +636,7 @@ Contributions are welcome! Please follow these steps:
 
 ## License
 
-This project is licensed under the MIT License — see the LICENSE file for details.
+This project is not licensed yet .
 
 ## Vision
 
@@ -644,6 +644,4 @@ GradFlow demonstrates practical software engineering through a complete, secure,
 
 ---
 
-**Built with ❤️ for INSA CTC Summer Camp Pre-Graduation Project**
-
-For detailed technical documentation, see [GradFlow Project Documentation](./docs/GradFlow_Project_Documentation.md)
+For detailed technical documentation, see [GradFlow Project Documentation](./docs/gradflow_documentation.md)
