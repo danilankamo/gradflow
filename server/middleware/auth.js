@@ -22,11 +22,9 @@ exports.protect = async (req, res, next) => {
 
     const decoded = jwt.verify(token, secret);
     req.user = await User.findById(decoded.id).select('-passwordHash');
-
     if (!req.user) {
-      return res.status(401).json({ success: false, message: 'User no longer exists' });
+      return res.status(401).json({ success: false, message: 'Not authorized, user no longer exists' });
     }
-
     next();
   } catch (err) {
     return res.status(401).json({ success: false, message: 'Not authorized, token failed' });

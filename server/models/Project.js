@@ -63,6 +63,7 @@ const ProjectSchema = new mongoose.Schema(
     },
     coordinatorComment: {
       type: String,
+      trim: true,
     },
     submittedAt: {
       type: Date,

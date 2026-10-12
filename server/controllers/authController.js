@@ -40,7 +40,7 @@ const sendTokenResponse = (user, statusCode, res) => {
 
 exports.register = async (req, res, next) => {
   try {
-    const { name, email, password, role, department, studentId } = req.body;
+    const { name, email, password, department, studentId } = req.body;
 
     if (!name || !email || !password) {
       return res.status(400).json({
@@ -63,7 +63,7 @@ exports.register = async (req, res, next) => {
       name: name.trim(),
       email: normalizedEmail,
       passwordHash: password,
-      role: role || 'student',
+      role: 'student',
       department,
       studentId,
     });

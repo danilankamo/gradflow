@@ -1,39 +1,52 @@
 const Project = require('../models/Project');
 
-const sanitizeProjectInput = (input = {}) => ({
-  title: input.title?.trim(),
-  abstract: input.abstract?.trim(),
-  problemStatement: input.problemStatement?.trim(),
-  objectives: Array.isArray(input.objectives)
-    ? input.objectives.map((objective) => String(objective).trim()).filter(Boolean)
-    : [],
-  methodology: input.methodology?.trim(),
-  technologies: Array.isArray(input.technologies)
-    ? input.technologies.map((technology) => String(technology).trim()).filter(Boolean)
-    : [],
-  keywords: Array.isArray(input.keywords)
-    ? input.keywords.map((keyword) => String(keyword).trim()).filter(Boolean)
-    : [],
-  category: input.category?.trim(),
-});
+const proposalStatuses = ['Submitted', 'Under Review', 'Resubmitted'];
+const editableStatuses = ['Draft', 'Revision'];
+const editableFields = [
+  'title',
+  'abstract',
+  'problemStatement',
+  'objectives',
+  'methodology',
+  'technologies',
+  'category',
+  'keywords',
+];
+
+const getProjectAccessFilter = (user) => {
+  if (user.role === 'coordinator') return {};
+  if (user.role === 'student') return { students: user._id };
+  if (user.role === 'supervisor') return { supervisorId: user._id };
+  return { _id: null };
+};
+
+const normalizeList = (value) =>
+  Array.isArray(value)
+    ? value.map((item) => String(item).trim()).filter(Boolean)
+    : value;
 
 exports.createProject = async (req, res, next) => {
   try {
-    const payload = sanitizeProjectInput(req.body);
+    const projectData = {};
+    editableFields.forEach((field) => {
+      if (Object.prototype.hasOwnProperty.call(req.body, field)) {
+        projectData[field] = ['objectives', 'technologies', 'keywords'].includes(field)
+          ? normalizeList(req.body[field])
+          : typeof req.body[field] === 'string'
+            ? req.body[field].trim()
+            : req.body[field];
+      }
+    });
 
-    if (!payload.title) {
-      return res.status(400).json({
-        success: false,
-        message: 'Project title is required',
-      });
+    if (!projectData.title) {
+      return res.status(400).json({ success: false, message: 'Project title is required' });
     }
 
     const project = await Project.create({
-      ...payload,
+      ...projectData,
       students: [req.user.id],
-      status: req.body.status || 'Draft',
+      status: 'Draft',
     });
-
     res.status(201).json({ success: true, data: project });
   } catch (err) {
     next(err);
@@ -46,26 +59,29 @@ exports.updateProject = async (req, res, next) => {
       _id: req.params.id,
       students: req.user.id,
     });
-
     if (!project) {
       return res.status(404).json({ success: false, message: 'Project not found' });
     }
 
-    if (['Submitted', 'Under Review', 'Approved', 'Rejected', 'Revision', 'Resubmitted', 'In Progress'].includes(project.status)) {
+    if (!editableStatuses.includes(project.status)) {
       return res.status(400).json({
         success: false,
-        message: 'This proposal can no longer be edited in its current state',
+        message: 'Proposal editing is only allowed for drafts or proposals returned for revision',
       });
     }
 
-    const payload = sanitizeProjectInput(req.body);
-    if (req.body.status) {
-      payload.status = req.body.status;
-    }
+    editableFields.forEach((field) => {
+      if (Object.prototype.hasOwnProperty.call(req.body, field)) {
+        const value = ['objectives', 'technologies', 'keywords'].includes(field)
+          ? normalizeList(req.body[field])
+          : typeof req.body[field] === 'string'
+            ? req.body[field].trim()
+            : req.body[field];
+        project[field] = value;
+      }
+    });
 
-    Object.assign(project, payload);
     const updatedProject = await project.save();
-
     res.status(200).json({ success: true, data: updatedProject });
   } catch (err) {
     next(err);
@@ -81,9 +97,51 @@ exports.getMyProjects = async (req, res, next) => {
   }
 };
 
+exports.getCoordinatorDashboard = async (req, res, next) => {
+  try {
+    const counts = await Project.aggregate([
+      { $group: { _id: '$status', count: { $sum: 1 } } },
+    ]);
+    const projectsByStatus = counts.reduce((result, item) => {
+      result[item._id] = item.count;
+      return result;
+    }, {});
+
+    res.status(200).json({
+      success: true,
+      data: {
+        totalProjects: counts.reduce((total, item) => total + item.count, 0),
+        pendingProposals: proposalStatuses.reduce(
+          (total, status) => total + (projectsByStatus[status] || 0),
+          0
+        ),
+        projectsByStatus,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.getProposalsForReview = async (req, res, next) => {
+  try {
+    const projects = await Project.find({ status: { $in: proposalStatuses } })
+      .populate('students', 'name email department studentId')
+      .sort({ submittedAt: 1, createdAt: 1 });
+    res.status(200).json({ success: true, count: projects.length, data: projects });
+  } catch (err) {
+    next(err);
+  }
+};
+
 exports.getProject = async (req, res, next) => {
   try {
-    const project = await Project.findById(req.params.id).populate('students').populate('supervisorId');
+    const project = await Project.findOne({
+      _id: req.params.id,
+      ...getProjectAccessFilter(req.user),
+    })
+      .populate('students', 'name email department studentId')
+      .populate('supervisorId', 'name email department');
     if (!project) {
       return res.status(404).json({ success: false, message: 'Project not found' });
     }
@@ -99,22 +157,27 @@ exports.submitProposal = async (req, res, next) => {
       _id: req.params.id,
       students: req.user.id,
     });
-
     if (!project) {
       return res.status(404).json({ success: false, message: 'Project not found' });
     }
 
-    if (!project.title) {
+    if (!editableStatuses.includes(project.status)) {
       return res.status(400).json({
         success: false,
-        message: 'A project title is required before submitting the proposal',
+        message: 'Only a draft or a proposal returned for revision can be submitted',
       });
     }
 
-    project.status = 'Submitted';
+    if (!project.title || !project.abstract || !project.problemStatement || !project.methodology) {
+      return res.status(400).json({
+        success: false,
+        message: 'Complete the title, abstract, problem statement and methodology before submitting',
+      });
+    }
+
+    project.status = project.status === 'Revision' ? 'Resubmitted' : 'Submitted';
     project.submittedAt = new Date();
     await project.save();
-
     res.status(200).json({
       success: true,
       projectId: project._id,
@@ -130,26 +193,43 @@ exports.reviewProposal = async (req, res, next) => {
   try {
     const { action, comment } = req.body;
     const project = await Project.findById(req.params.id);
-
     if (!project) {
       return res.status(404).json({ success: false, message: 'Project not found' });
     }
 
-    const nextStatusMap = {
-      review: 'Under Review',
+    if (!proposalStatuses.includes(project.status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Only submitted proposals can be reviewed',
+      });
+    }
+
+    const transitions = {
       approve: 'Approved',
       reject: 'Rejected',
       revision: 'Revision',
-      resubmit: 'Resubmitted',
     };
 
-    if (action && nextStatusMap[action]) {
-      project.status = nextStatusMap[action];
+    if (action === 'start_review') {
+      if (project.status === 'Under Review') {
+        return res.status(400).json({
+          success: false,
+          message: 'This proposal is already under review',
+        });
+      }
+      project.status = 'Under Review';
+    } else if (Object.prototype.hasOwnProperty.call(transitions, action)) {
+      project.status = transitions[action];
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: 'Action must be start_review, approve, reject or revision',
+      });
     }
 
-    if (comment) project.coordinatorComment = comment;
+    project.coordinatorComment = typeof comment === 'string' ? comment.trim() : '';
     await project.save();
-
+    await project.populate('students', 'name email department studentId');
     res.status(200).json({ success: true, data: project });
   } catch (err) {
     next(err);
