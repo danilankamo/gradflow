@@ -9,17 +9,22 @@ const ProjectSchema = new mongoose.Schema(
     },
     abstract: {
       type: String,
+      trim: true,
     },
     problemStatement: {
       type: String,
+      trim: true,
     },
     objectives: [String],
     methodology: {
       type: String,
+      trim: true,
     },
     technologies: [String],
+    keywords: [String],
     category: {
       type: String,
+      trim: true,
     },
     students: [
       {
@@ -58,6 +63,9 @@ const ProjectSchema = new mongoose.Schema(
     },
     coordinatorComment: {
       type: String,
+    },
+    submittedAt: {
+      type: Date,
     },
   },
   {

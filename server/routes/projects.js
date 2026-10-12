@@ -1,6 +1,7 @@
 const express = require('express');
 const {
   createProject,
+  updateProject,
   getMyProjects,
   getProject,
   submitProposal,
@@ -14,6 +15,7 @@ const router = express.Router();
 router.use(protect);
 router.post('/', authorize('student'), createProject);
 router.get('/my', authorize('student'), getMyProjects);
+router.put('/:id', authorize('student'), updateProject);
 router.get('/:id', getProject);
 router.patch('/:id/submit', authorize('student'), submitProposal);
 router.patch('/:id/review', authorize('coordinator'), reviewProposal);
