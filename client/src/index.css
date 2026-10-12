@@ -29,12 +29,30 @@ body {
 }
 
 button,
-input {
+input,
+textarea {
   font: inherit;
 }
 
 button {
   cursor: pointer;
+}
+
+textarea,
+input {
+  width: 100%;
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+  padding: 0.8rem 0.9rem;
+  font-size: 1rem;
+  background: white;
+  resize: vertical;
+}
+
+textarea:focus,
+input:focus {
+  outline: 2px solid rgba(79, 70, 229, 0.18);
+  border-color: #6366f1;
 }
 
 .app-shell {
@@ -63,6 +81,7 @@ button {
 h1,
 h2,
 h3,
+h4,
 p {
   margin-top: 0;
 }
@@ -107,30 +126,19 @@ h1 {
   box-shadow: 0 10px 20px rgba(79, 70, 229, 0.25);
 }
 
-.auth-form {
+.auth-form,
+.stacked-form {
   display: grid;
   gap: 1rem;
   max-width: 560px;
 }
 
-.auth-form label {
+.auth-form label,
+.stacked-form label {
   display: grid;
   gap: 0.45rem;
   font-weight: 600;
   color: #374151;
-}
-
-.auth-form input {
-  border: 1px solid #d1d5db;
-  border-radius: 12px;
-  padding: 0.8rem 0.9rem;
-  font-size: 1rem;
-  background: white;
-}
-
-.auth-form input:focus {
-  outline: 2px solid rgba(79, 70, 229, 0.18);
-  border-color: #6366f1;
 }
 
 .primary-button,
@@ -164,13 +172,23 @@ h1 {
   cursor: wait;
 }
 
-.error-text {
+.error-text,
+.info-text {
   margin: 0;
   padding: 0.7rem 0.8rem;
   border-radius: 10px;
+}
+
+.error-text {
   background: #fef2f2;
   color: #b91c1c;
   border: 1px solid #fecaca;
+}
+
+.info-text {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
 }
 
 .user-summary {
@@ -189,6 +207,11 @@ h1 {
   color: #3730a3;
   padding: 0.45rem 0.8rem;
   font-weight: 700;
+}
+
+.role-badge.subtle {
+  background: #ecfdf5;
+  color: #047857;
 }
 
 .route-nav {
@@ -218,6 +241,44 @@ h1 {
 .info-card p {
   margin-bottom: 0;
   color: #475569;
+}
+
+.proposal-panel {
+  display: grid;
+  gap: 1.2rem;
+}
+
+.status-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.button-row {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.mini-list {
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 1rem;
+  background: #f8fafc;
+}
+
+.list-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.7rem 0;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.list-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
 }
 
 .access-denied {
