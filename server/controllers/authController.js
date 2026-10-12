@@ -33,13 +33,13 @@ const sendTokenResponse = (user, statusCode, res) => {
 
 exports.register = async (req, res, next) => {
   try {
-    const { name, email, password, role, department, studentId } = req.body;
+    const { name, email, password, department, studentId } = req.body;
 
     const user = await User.create({
       name,
       email,
       passwordHash: password,
-      role,
+      role: 'student',
       department,
       studentId,
     });
