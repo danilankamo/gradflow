@@ -12,6 +12,8 @@ const UserSchema = new mongoose.Schema(
       type: String,
       required: [true, 'Please add an email'],
       unique: true,
+      lowercase: true,
+      trim: true,
       match: [
         /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/,
         'Please add a valid email',
@@ -20,6 +22,8 @@ const UserSchema = new mongoose.Schema(
     passwordHash: {
       type: String,
       required: [true, 'Please add a password'],
+      minlength: [8, 'Password must be at least 8 characters long'],
+      select: false,
     },
     role: {
       type: String,
@@ -50,10 +54,12 @@ UserSchema.methods.matchPassword = async function (enteredPassword) {
 
 UserSchema.pre('save', async function (next) {
   if (!this.isModified('passwordHash')) {
-    next();
+    return next();
   }
+
   const salt = await bcrypt.genSalt(10);
   this.passwordHash = await bcrypt.hash(this.passwordHash, salt);
+  next();
 });
 
 module.exports = mongoose.model('User', UserSchema);
