@@ -2,13 +2,20 @@ const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 
 const sendTokenResponse = (user, statusCode, res) => {
-  const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+  const secret = process.env.JWT_SECRET;
+
+  if (!secret) {
+    throw new Error('JWT_SECRET is not configured');
+  }
+
+  const token = jwt.sign({ id: user._id, role: user.role }, secret, {
     expiresIn: '30d',
   });
 
   const options = {
     expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
     httpOnly: true,
+    sameSite: 'lax',
   };
 
   if (process.env.NODE_ENV === 'production') {
@@ -35,16 +42,33 @@ exports.register = async (req, res, next) => {
   try {
     const { name, email, password, role, department, studentId } = req.body;
 
+    if (!name || !email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide a name, email and password',
+      });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+    const existingUser = await User.findOne({ email: normalizedEmail });
+
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: 'A user with that email already exists',
+      });
+    }
+
     const user = await User.create({
-      name,
-      email,
+      name: name.trim(),
+      email: normalizedEmail,
       passwordHash: password,
-      role,
+      role: role || 'student',
       department,
       studentId,
     });
 
-    sendTokenResponse(user, 200, res);
+    sendTokenResponse(user, 201, res);
   } catch (err) {
     next(err);
   }
@@ -60,7 +84,8 @@ exports.login = async (req, res, next) => {
         .json({ success: false, message: 'Please provide an email and password' });
     }
 
-    const user = await User.findOne({ email }).select('+passwordHash');
+    const normalizedEmail = email.toLowerCase().trim();
+    const user = await User.findOne({ email: normalizedEmail }).select('+passwordHash');
 
     if (!user) {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
@@ -92,6 +117,7 @@ exports.logout = async (req, res, next) => {
     res.cookie('token', 'none', {
       expires: new Date(Date.now() + 10 * 1000),
       httpOnly: true,
+      sameSite: 'lax',
     });
 
     res.status(200).json({
