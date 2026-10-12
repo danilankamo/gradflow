@@ -588,11 +588,17 @@ Under Review
 
 | GET | /api/projects/my | Get student's projects |
 
+| PUT | /api/projects/:id | Student updates a draft or proposal returned for revision |
+
+| GET | /api/projects/coordinator/dashboard | Coordinator: project counts and pending proposal count |
+
+| GET | /api/projects/coordinator/review | Coordinator: list submitted proposals awaiting decision |
+
 | GET | /api/projects/:id | Get project details |
 
 | PATCH | /api/projects/:id/submit | Submit proposal |
 
-| PATCH | /api/projects/:id/review | Coordinator approves/rejects |
+| PATCH | /api/projects/:id/review | Coordinator starts review, approves, rejects, or requests revision with a comment |
 
 | PATCH | /api/projects/:id/supervisor | Coordinator assigns supervisor |
 
