@@ -1,6 +1,17 @@
 const Project = require('../models/Project');
 
 const proposalStatuses = ['Submitted', 'Under Review', 'Resubmitted'];
+const editableStatuses = ['Draft', 'Revision'];
+const editableFields = [
+  'title',
+  'abstract',
+  'problemStatement',
+  'objectives',
+  'methodology',
+  'technologies',
+  'category',
+  'keywords',
+];
 
 const getProjectAccessFilter = (user) => {
   if (user.role === 'coordinator') return {};
@@ -9,18 +20,30 @@ const getProjectAccessFilter = (user) => {
   return { _id: null };
 };
 
+const normalizeList = (value) =>
+  Array.isArray(value)
+    ? value.map((item) => String(item).trim()).filter(Boolean)
+    : value;
+
 exports.createProject = async (req, res, next) => {
   try {
-    const { title, abstract, problemStatement, objectives, methodology, technologies, category, keywords } = req.body;
+    const projectData = {};
+    editableFields.forEach((field) => {
+      if (Object.prototype.hasOwnProperty.call(req.body, field)) {
+        projectData[field] = ['objectives', 'technologies', 'keywords'].includes(field)
+          ? normalizeList(req.body[field])
+          : typeof req.body[field] === 'string'
+            ? req.body[field].trim()
+            : req.body[field];
+      }
+    });
+
+    if (!projectData.title) {
+      return res.status(400).json({ success: false, message: 'Project title is required' });
+    }
+
     const project = await Project.create({
-      title,
-      abstract,
-      problemStatement,
-      objectives,
-      methodology,
-      technologies,
-      category,
-      keywords,
+      ...projectData,
       students: [req.user.id],
       status: 'Draft',
     });
@@ -40,26 +63,21 @@ exports.updateProject = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Project not found' });
     }
 
-    if (!['Draft', 'Revision'].includes(project.status)) {
+    if (!editableStatuses.includes(project.status)) {
       return res.status(400).json({
         success: false,
         message: 'Proposal editing is only allowed for drafts or proposals returned for revision',
       });
     }
 
-    const editableFields = [
-      'title',
-      'abstract',
-      'problemStatement',
-      'objectives',
-      'methodology',
-      'technologies',
-      'category',
-      'keywords',
-    ];
     editableFields.forEach((field) => {
       if (Object.prototype.hasOwnProperty.call(req.body, field)) {
-        project[field] = req.body[field];
+        const value = ['objectives', 'technologies', 'keywords'].includes(field)
+          ? normalizeList(req.body[field])
+          : typeof req.body[field] === 'string'
+            ? req.body[field].trim()
+            : req.body[field];
+        project[field] = value;
       }
     });
 
@@ -81,13 +99,9 @@ exports.getMyProjects = async (req, res, next) => {
 
 exports.getCoordinatorDashboard = async (req, res, next) => {
   try {
-    const [counts, pendingCount] = await Promise.all([
-      Project.aggregate([
-        { $group: { _id: '$status', count: { $sum: 1 } } },
-      ]),
-      Project.countDocuments({ status: { $in: proposalStatuses } }),
+    const counts = await Project.aggregate([
+      { $group: { _id: '$status', count: { $sum: 1 } } },
     ]);
-
     const projectsByStatus = counts.reduce((result, item) => {
       result[item._id] = item.count;
       return result;
@@ -97,7 +111,10 @@ exports.getCoordinatorDashboard = async (req, res, next) => {
       success: true,
       data: {
         totalProjects: counts.reduce((total, item) => total + item.count, 0),
-        pendingProposals: pendingCount,
+        pendingProposals: proposalStatuses.reduce(
+          (total, status) => total + (projectsByStatus[status] || 0),
+          0
+        ),
         projectsByStatus,
       },
     });
@@ -111,7 +128,6 @@ exports.getProposalsForReview = async (req, res, next) => {
     const projects = await Project.find({ status: { $in: proposalStatuses } })
       .populate('students', 'name email department studentId')
       .sort({ submittedAt: 1, createdAt: 1 });
-
     res.status(200).json({ success: true, count: projects.length, data: projects });
   } catch (err) {
     next(err);
@@ -145,7 +161,7 @@ exports.submitProposal = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Project not found' });
     }
 
-    if (!['Draft', 'Revision'].includes(project.status)) {
+    if (!editableStatuses.includes(project.status)) {
       return res.status(400).json({
         success: false,
         message: 'Only a draft or a proposal returned for revision can be submitted',
@@ -223,7 +239,7 @@ exports.reviewProposal = async (req, res, next) => {
 exports.assignSupervisor = async (req, res, next) => {
   try {
     const { supervisorId } = req.body;
-    let project = await Project.findById(req.params.id);
+    const project = await Project.findById(req.params.id);
     if (!project) {
       return res.status(404).json({ success: false, message: 'Project not found' });
     }

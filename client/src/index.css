@@ -7,7 +7,6 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  font-weight: 400;
 }
 
 * {
@@ -18,9 +17,7 @@ body {
   min-width: 320px;
   min-height: 100vh;
   margin: 0;
-  background:
-    radial-gradient(circle at 15% 0, rgba(224, 231, 255, 0.72), transparent 34rem),
-    #f4f6fa;
+  background: radial-gradient(circle at 15% 0, #e7eaff 0, transparent 34rem), #f4f6fa;
 }
 
 button,
@@ -64,7 +61,7 @@ button:disabled {
 }
 
 .topbar {
-  margin-bottom: 36px;
+  margin-bottom: 30px;
 }
 
 .brand {
@@ -95,6 +92,7 @@ button:disabled {
 h1,
 h2,
 h3,
+h4,
 p {
   margin-top: 0;
 }
@@ -102,7 +100,6 @@ p {
 h1 {
   margin-bottom: 0;
   font-size: 1.12rem;
-  font-weight: 700;
 }
 
 h2 {
@@ -151,25 +148,39 @@ h3 {
   color: #737d90;
 }
 
-.tabs {
+.tabs,
+.route-nav {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
+}
+
+.tabs {
   margin-bottom: 20px;
   border-bottom: 1px solid #ebedf2;
 }
 
-.tabs button {
+.tabs button,
+.route-nav button {
   padding: 10px 12px;
   border: 0;
   border-bottom: 2px solid transparent;
+  border-radius: 8px 8px 0 0;
   background: transparent;
   color: #737d90;
   font-weight: 700;
 }
 
-.tabs button.selected {
+.tabs button.selected,
+.route-nav button.active {
   border-color: #5148d9;
   color: #4038c8;
+  background: #f4f3ff;
+}
+
+.route-nav {
+  margin-bottom: 24px;
+  border-bottom: 1px solid #ebedf2;
 }
 
 .form-grid,
@@ -177,6 +188,10 @@ h3 {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 17px;
+}
+
+.form-grid {
+  grid-template-columns: 1fr;
 }
 
 .form-grid label,
@@ -187,10 +202,6 @@ h3 {
   color: #424d60;
   font-size: 0.86rem;
   font-weight: 700;
-}
-
-.form-grid {
-  grid-template-columns: 1fr;
 }
 
 input,
@@ -272,6 +283,7 @@ textarea:disabled {
   padding: 28px;
 }
 
+.subsection > .page-heading,
 .page-heading {
   margin-bottom: 24px;
 }
@@ -432,7 +444,8 @@ textarea:disabled {
   color: #315db4;
 }
 
-.status-under-review {
+.status-under-review,
+.status-revision {
   background: #fff4dc;
   color: #9b6200;
 }
@@ -442,18 +455,9 @@ textarea:disabled {
   color: #137642;
 }
 
-.status-revision {
-  background: #fff4dc;
-  color: #9b6200;
-}
-
 .status-rejected {
   background: #fff0ef;
   color: #b53630;
-}
-
-.status-no-proposal {
-  background: #eff1f6;
 }
 
 .student-byline {
@@ -530,6 +534,18 @@ textarea:disabled {
 .feedback-box p {
   margin: 4px 0 0;
   white-space: pre-wrap;
+}
+
+.info-card {
+  padding: 18px;
+  border: 1px solid #e6e9f0;
+  border-radius: 13px;
+  background: #fbfcfe;
+}
+
+.info-card p {
+  margin: 8px 0 0;
+  color: #727d8f;
 }
 
 .alert {
