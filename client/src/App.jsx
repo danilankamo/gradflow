@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import SupervisorManagement, { SupervisorWorkspace } from './SupervisorManagement.jsx';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -20,7 +21,7 @@ async function request(path, options = {}) {
   });
   const data = await response.json();
   if (!response.ok) {
-    throw new Error(data.message || 'The request could not be completed');
+    throw new Error(data.message || data.error || 'The request could not be completed');
   }
   return data;
 }
@@ -32,6 +33,8 @@ function App() {
   const [token, setToken] = useState(() => localStorage.getItem('gradflow-token') || '');
   const [route, setRoute] = useState('overview');
   const [projects, setProjects] = useState([]);
+  const [supervisors, setSupervisors] = useState([]);
+  const [assignmentProjects, setAssignmentProjects] = useState([]);
   const [dashboard, setDashboard] = useState(null);
   const [selectedProject, setSelectedProject] = useState(null);
   const [proposal, setProposal] = useState(emptyProposal);
@@ -55,12 +58,16 @@ function App() {
     setError('');
     try {
       if (user.role === 'coordinator') {
-        const [reviewData, dashboardData] = await Promise.all([
+        const [reviewData, dashboardData, supervisorData, assignmentData] = await Promise.all([
           request('/api/projects/coordinator/review', apiOptions()),
           request('/api/projects/coordinator/dashboard', apiOptions()),
+          request('/api/users/supervisors', apiOptions()),
+          request('/api/projects/coordinator/assignments', apiOptions()),
         ]);
         setProjects(reviewData.data);
         setDashboard(dashboardData.data);
+        setSupervisors(supervisorData.data);
+        setAssignmentProjects(assignmentData.data);
         setSelectedProject((current) => {
           const retained = reviewData.data.find((project) => project._id === current?._id);
           return retained || reviewData.data[0] || null;
@@ -79,6 +86,9 @@ function App() {
           category: current.category || '',
           keywords: Array.isArray(current.keywords) ? current.keywords.join(', ') : '',
         } : emptyProposal);
+      } else if (user.role === 'supervisor') {
+        const result = await request('/api/projects/supervisor/assigned', apiOptions());
+        setProjects(result.data);
       }
     } catch (loadError) {
       setError(loadError.message);
@@ -129,7 +139,11 @@ function App() {
       return [...shared, { key: 'proposal', label: 'My Proposal' }];
     }
     if (user.role === 'coordinator') {
-      return [...shared, { key: 'review', label: 'Proposal Review' }];
+      return [
+        ...shared,
+        { key: 'review', label: 'Proposal Review' },
+        { key: 'supervisors', label: 'Supervisors' },
+      ];
     }
     return [...shared, { key: 'workspace', label: 'Workspace' }];
   }, [user]);
@@ -255,6 +269,68 @@ function App() {
     }
   };
 
+  const handleSupervisorSave = async (supervisorData, supervisorId) => {
+    setBusy(true);
+    setError('');
+    setMessage('');
+    const payload = { ...supervisorData };
+    if (!payload.password) delete payload.password;
+    try {
+      await request(
+        supervisorId
+          ? `/api/users/supervisors/${supervisorId}`
+          : '/api/users/supervisors',
+        apiOptions(supervisorId ? 'PUT' : 'POST', payload)
+      );
+      setMessage(supervisorId ? 'Supervisor profile updated.' : 'Supervisor account created.');
+      await loadWorkspace();
+      return true;
+    } catch (supervisorError) {
+      setError(supervisorError.message);
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleSupervisorDelete = async (supervisorId) => {
+    setBusy(true);
+    setError('');
+    setMessage('');
+    try {
+      await request(`/api/users/supervisors/${supervisorId}`, apiOptions('DELETE'));
+      setMessage('Supervisor account deleted.');
+      await loadWorkspace();
+    } catch (supervisorError) {
+      setError(supervisorError.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleSupervisorAssign = async (project, supervisorId, currentSupervisorId) => {
+    setBusy(true);
+    setError('');
+    setMessage('');
+    try {
+      const result = await request(
+        `/api/projects/${project._id}/supervisor`,
+        apiOptions('PATCH', {
+          supervisorId,
+          ...(currentSupervisorId ? { currentSupervisorId } : {}),
+        })
+      );
+      setMessage(`${result.data.title} assigned to ${result.data.supervisorId.name}.`);
+      await loadWorkspace();
+      return true;
+    } catch (assignmentError) {
+      setError(assignmentError.message);
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const handleLogout = async () => {
     try {
       if (token) await request('/api/auth/logout', apiOptions());
@@ -265,6 +341,8 @@ function App() {
       setUser(null);
       setRoute('overview');
       setProjects([]);
+      setSupervisors([]);
+      setAssignmentProjects([]);
       setSelectedProject(null);
       setDashboard(null);
       setMessage('');
@@ -397,6 +475,18 @@ function App() {
             />
           )}
 
+          {route === 'supervisors' && user.role === 'coordinator' && (
+            <SupervisorManagement
+              supervisors={supervisors}
+              projects={assignmentProjects}
+              busy={busy}
+              onSave={handleSupervisorSave}
+              onDelete={handleSupervisorDelete}
+              onAssign={handleSupervisorAssign}
+              onRefresh={loadWorkspace}
+            />
+          )}
+
           {route === 'overview' && user.role === 'coordinator' && dashboard && (
             <div className="stats-grid">
               <StatCard label="Total projects" value={dashboard.totalProjects} />
@@ -411,7 +501,9 @@ function App() {
           )}
 
           {route === 'workspace' && (
-            <div className="info-card"><h3>{user.role} workspace</h3><p>Role-specific project tools will appear here as their workflows are implemented.</p></div>
+            user.role === 'supervisor'
+              ? <SupervisorWorkspace projects={projects} onRefresh={loadWorkspace} />
+              : <div className="info-card"><h3>{user.role} workspace</h3><p>Role-specific project tools will appear here as their workflows are implemented.</p></div>
           )}
         </section>
       )}

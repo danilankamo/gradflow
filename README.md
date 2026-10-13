@@ -1,5 +1,7 @@
 # GradFlow
 
+<!-- markdownlint-disable MD013 MD040 MD060 -->
+
 **GradFlow** is a web-based university graduation project lifecycle management system designed to centralize and simplify the process of managing final-year projects. The platform covers the essential workflow: proposal submission, departmental review, supervisor assignment, milestone tracking, deliverable evaluation, defense scheduling, and final assessment.
 
 Built as an individual-developer MVP, GradFlow focuses on one clearly defined workflow with appropriate roles, security controls, and scalable architecture—delivering a complete, deployed prototype suitable for a university graduation-project ecosystem.
@@ -25,7 +27,7 @@ Built as an individual-developer MVP, GradFlow focuses on one clearly defined wo
 ## Tech Stack
 
 | Layer | Technology | Role |
-|-------|-----------|------|
+| ------- | ----------- | ------ |
 | Frontend | React 19 + Vite 8 + Tailwind CSS 4 | Component-based UI with fast build tool and utility-first styling |
 | Backend | Node.js + Express | RESTful API server |
 | Database | MongoDB Atlas + Mongoose | NoSQL document storage for flexible schemas |
@@ -107,7 +109,7 @@ The app runs at `http://localhost:5173`
 ### Backend (server/)
 
 | Command | Description |
-|---------|-------------|
+| --------- | ------------- |
 | `npm run dev` | Start dev server with auto-reload |
 | `npm run build` | Build for production |
 | `npm start` | Start production server |
@@ -117,7 +119,7 @@ The app runs at `http://localhost:5173`
 ### Frontend (client/)
 
 | Command | Description |
-|---------|-------------|
+| --------- | ------------- |
 | `npm run dev` | Start dev server with hot reload |
 | `npm run build` | Build for production |
 | `npm run preview` | Preview production build |
@@ -264,6 +266,7 @@ gradflow/
 Creates a project proposal, works through milestones, submits deliverables, and views feedback and defense information.
 
 **Key Actions:**
+
 - Create/edit proposal
 - Submit proposal for review
 - View assigned supervisor and milestones
@@ -276,6 +279,7 @@ Creates a project proposal, works through milestones, submits deliverables, and 
 Reviews assigned projects, manages milestones, evaluates submissions, and provides feedback.
 
 **Key Actions:**
+
 - View assigned projects
 - Create and manage milestones
 - Review submissions
@@ -287,6 +291,7 @@ Reviews assigned projects, manages milestones, evaluates submissions, and provid
 Manages projects and users, reviews proposals, assigns supervisors, and schedules defenses.
 
 **Key Actions:**
+
 - Review proposals
 - Approve/reject proposals
 - Assign supervisors
@@ -300,6 +305,7 @@ Manages projects and users, reviews proposals, assigns supervisors, and schedule
 Reviews assigned final projects and records defense/evaluation scores.
 
 **Key Actions:**
+
 - View assigned projects
 - Submit evaluations
 - Record scores
@@ -360,7 +366,7 @@ Completed / Archived
 ### Authentication
 
 | Method | Endpoint | Description |
-|--------|----------|-------------|
+| -------- | ---------- | ------------- |
 | POST | `/api/auth/register` | Create account |
 | POST | `/api/auth/login` | Login and get JWT token |
 | GET | `/api/auth/me` | Get current user |
@@ -368,18 +374,35 @@ Completed / Archived
 ### Projects & Proposals
 
 | Method | Endpoint | Description |
-|--------|----------|-------------|
+| -------- | ---------- | ------------- |
 | POST | `/api/projects` | Student creates proposal |
 | GET | `/api/projects/my` | Get student's projects |
 | GET | `/api/projects/:id` | Get project details |
 | PATCH | `/api/projects/:id/submit` | Submit proposal |
 | PATCH | `/api/projects/:id/review` | Coordinator approves/rejects |
 | PATCH | `/api/projects/:id/supervisor` | Coordinator assigns supervisor |
+| GET | `/api/projects/coordinator/assignments` | List approved projects awaiting assignment |
+| GET | `/api/projects/supervisor/assigned` | List the authenticated supervisor's projects |
+
+### Supervisor Management
+
+| Method | Endpoint | Description |
+| -------- | ---------- | ------------- |
+| GET | `/api/users/supervisors` | Coordinator lists supervisors |
+| POST | `/api/users/supervisors` | Coordinator creates a supervisor account |
+| PUT | `/api/users/supervisors/:id` | Coordinator updates supervisor profile |
+| DELETE | `/api/users/supervisors/:id` | Delete a supervisor without assigned projects |
+
+Supervisor assignments are limited to approved, unassigned projects.
+Coordinators can reassign an in-progress project; the update is guarded
+against stale assignment data. Assigned projects appear in the supervisor's
+workspace. A supervisor with assigned projects cannot be deleted until
+those projects are reassigned.
 
 ### Milestones & Submissions
 
 | Method | Endpoint | Description |
-|--------|----------|-------------|
+| -------- | ---------- | ------------- |
 | POST | `/api/projects/:id/milestones` | Create milestone |
 | GET | `/api/projects/:id/milestones` | List milestones |
 | POST | `/api/milestones/:id/submissions` | Student submits deliverable |
@@ -388,7 +411,7 @@ Completed / Archived
 ### Defense & Evaluation
 
 | Method | Endpoint | Description |
-|--------|----------|-------------|
+| -------- | ---------- | ------------- |
 | POST | `/api/defenses` | Schedule defense |
 | GET | `/api/defenses` | List defenses |
 | POST | `/api/defenses/:id/evaluations` | Submit evaluation |
@@ -547,7 +570,7 @@ Completed / Archived
 ### STRIDE Threat Model
 
 | Category | Threat | Mitigation |
-|----------|--------|-----------|
+| ---------- | -------- | ----------- |
 | Spoofing | Attacker uses another user's credentials | Strong password hashing, JWT, session controls |
 | Tampering | Student changes project status via API | Server-side authorization, workflow validation |
 | Repudiation | User denies submitting deliverable | Submission timestamps, audit fields |
@@ -604,7 +627,7 @@ npm test
 ## Development Timeline
 
 | Days | Phase | Focus |
-|------|-------|-------|
+| ------ | ------- | ------- |
 | 1 | Planning | Schema, API design, setup |
 | 2–3 | Foundation | Express, MongoDB, Auth, Middleware |
 | 4–6 | Student Workflow | Profile, proposals, dashboards |

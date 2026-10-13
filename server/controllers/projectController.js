@@ -1,4 +1,6 @@
 const Project = require('../models/Project');
+const User = require('../models/User');
+const mongoose = require('mongoose');
 
 const proposalStatuses = ['Submitted', 'Under Review', 'Resubmitted'];
 const editableStatuses = ['Draft', 'Revision'];
@@ -134,6 +136,43 @@ exports.getProposalsForReview = async (req, res, next) => {
   }
 };
 
+exports.getProjectsForAssignment = async (req, res, next) => {
+  try {
+    const projects = await Project.find({
+      $or: [
+        {
+          status: 'Approved',
+          $or: [
+            { supervisorId: { $exists: false } },
+            { supervisorId: null },
+          ],
+        },
+        {
+          status: 'In Progress',
+          supervisorId: { $exists: true, $ne: null },
+        },
+      ],
+    })
+      .populate('students', 'name email department studentId')
+      .populate('supervisorId', 'name email department')
+      .sort({ updatedAt: 1 });
+    res.status(200).json({ success: true, count: projects.length, data: projects });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.getAssignedProjects = async (req, res, next) => {
+  try {
+    const projects = await Project.find({ supervisorId: req.user._id })
+      .populate('students', 'name email department studentId')
+      .sort({ updatedAt: -1 });
+    res.status(200).json({ success: true, count: projects.length, data: projects });
+  } catch (err) {
+    next(err);
+  }
+};
+
 exports.getProject = async (req, res, next) => {
   try {
     const project = await Project.findOne({
@@ -238,16 +277,75 @@ exports.reviewProposal = async (req, res, next) => {
 
 exports.assignSupervisor = async (req, res, next) => {
   try {
-    const { supervisorId } = req.body;
-    const project = await Project.findById(req.params.id);
+    const { supervisorId, currentSupervisorId } = req.body;
+    if (!mongoose.isValidObjectId(supervisorId)) {
+      return res.status(400).json({ success: false, message: 'A valid supervisor is required' });
+    }
+    if (
+      currentSupervisorId !== undefined &&
+      !mongoose.isValidObjectId(currentSupervisorId)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: 'A valid current supervisor is required to reassign a project',
+      });
+    }
+    if (currentSupervisorId && String(currentSupervisorId) === String(supervisorId)) {
+      return res.status(409).json({
+        success: false,
+        message: 'This supervisor is already assigned to the project',
+      });
+    }
+
+    const supervisor = await User.findOne({ _id: supervisorId, role: 'supervisor' });
+    if (!supervisor) {
+      return res.status(400).json({
+        success: false,
+        message: 'The selected user is not an active supervisor',
+      });
+    }
+
+    const eligibleAssignments = [
+      {
+        status: 'Approved',
+        $or: [
+          { supervisorId: { $exists: false } },
+          { supervisorId: null },
+        ],
+      },
+    ];
+    if (currentSupervisorId) {
+      eligibleAssignments.push({
+        status: 'In Progress',
+        supervisorId: currentSupervisorId,
+      });
+    }
+
+    const project = await Project.findOneAndUpdate(
+      { _id: req.params.id, $or: eligibleAssignments },
+      {
+        $set: {
+          supervisorId: supervisor._id,
+          status: 'In Progress',
+        },
+      },
+      { new: true, runValidators: true }
+    )
+      .populate('students', 'name email department studentId')
+      .populate('supervisorId', 'name email department skills');
+
     if (!project) {
-      return res.status(404).json({ success: false, message: 'Project not found' });
+      const existingProject = await Project.findById(req.params.id).select('status supervisorId');
+      if (!existingProject) {
+        return res.status(404).json({ success: false, message: 'Project not found' });
+      }
+      return res.status(409).json({
+        success: false,
+        message: existingProject.supervisorId
+          ? 'The project assignment has changed; refresh the assignment list and try again'
+          : 'Only approved, unassigned projects can receive a supervisor',
+      });
     }
-    project.supervisorId = supervisorId;
-    if (project.status === 'Approved') {
-      project.status = 'In Progress';
-    }
-    await project.save();
     res.status(200).json({ success: true, data: project });
   } catch (err) {
     next(err);
