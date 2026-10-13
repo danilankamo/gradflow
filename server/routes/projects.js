@@ -5,6 +5,8 @@ const {
   getMyProjects,
   getCoordinatorDashboard,
   getProposalsForReview,
+  getProjectsForAssignment,
+  getAssignedProjects,
   getProject,
   submitProposal,
   reviewProposal,
@@ -19,6 +21,8 @@ router.post('/', authorize('student'), createProject);
 router.get('/my', authorize('student'), getMyProjects);
 router.get('/coordinator/dashboard', authorize('coordinator'), getCoordinatorDashboard);
 router.get('/coordinator/review', authorize('coordinator'), getProposalsForReview);
+router.get('/coordinator/assignments', authorize('coordinator'), getProjectsForAssignment);
+router.get('/supervisor/assigned', authorize('supervisor'), getAssignedProjects);
 router.put('/:id', authorize('student'), updateProject);
 router.get('/:id', getProject);
 router.patch('/:id/submit', authorize('student'), submitProposal);

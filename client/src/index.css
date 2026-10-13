@@ -22,7 +22,8 @@ body {
 
 button,
 input,
-textarea {
+textarea,
+select {
   font: inherit;
 }
 
@@ -205,7 +206,8 @@ h3 {
 }
 
 input,
-textarea {
+textarea,
+select {
   width: 100%;
   border: 1px solid #dce1ea;
   border-radius: 10px;
@@ -221,13 +223,19 @@ textarea {
 }
 
 input:focus,
-textarea:focus {
+textarea:focus,
+select:focus {
   border-color: #7770e8;
   box-shadow: 0 0 0 3px rgba(81, 72, 217, 0.12);
 }
 
 input:disabled,
 textarea:disabled {
+  background: #f7f8fb;
+  color: #747d8e;
+}
+
+select:disabled {
   background: #f7f8fb;
   color: #747d8e;
 }
@@ -518,6 +526,125 @@ textarea:disabled {
   margin: 0 auto;
 }
 
+.supervisor-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.management-card,
+.assigned-project-card {
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid #e6e9f0;
+  border-radius: 13px;
+  background: #fbfcfe;
+}
+
+.management-card > h3 {
+  margin-bottom: 16px;
+}
+
+.supervisor-form {
+  gap: 12px;
+}
+
+.supervisor-section-heading {
+  margin: -4px -4px 10px;
+  padding: 4px;
+}
+
+.supervisor-section-heading h3 {
+  margin: 0;
+}
+
+.supervisor-section-heading .eyebrow {
+  margin-bottom: 3px;
+}
+
+.supervisor-list,
+.assignment-list,
+.assigned-project-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.supervisor-card,
+.assignment-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 13px;
+  border: 1px solid #e9ebf1;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.supervisor-card > div:first-child,
+.assignment-item > div:first-child {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.supervisor-card strong,
+.assignment-item strong {
+  color: #283244;
+  font-size: 0.9rem;
+}
+
+.supervisor-card span,
+.supervisor-card small,
+.assignment-item span {
+  overflow-wrap: anywhere;
+  color: #7b8494;
+  font-size: 0.78rem;
+}
+
+.supervisor-card small {
+  color: #565f72;
+}
+
+.assignment-card {
+  margin-top: 18px;
+}
+
+.assignment-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.assignment-controls select {
+  min-width: 190px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  clip-path: inset(50%);
+}
+
+.assigned-project-card > p {
+  margin: 0 0 14px;
+  color: #626d80;
+  font-size: 0.88rem;
+}
+
+.status-in-progress {
+  background: #eaf1ff;
+  color: #315db4;
+}
+
 .proposal-form .full-width {
   grid-column: 1 / -1;
 }
@@ -575,6 +702,10 @@ textarea:disabled {
 
   .stats-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .supervisor-layout {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -636,5 +767,20 @@ textarea:disabled {
 
   .page-heading {
     align-items: flex-start;
+  }
+
+  .supervisor-card,
+  .assignment-item {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .assignment-controls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .assignment-controls select {
+    min-width: 0;
   }
 }
