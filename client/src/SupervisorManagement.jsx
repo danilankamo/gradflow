@@ -233,7 +233,7 @@ function SupervisorManagement({
   );
 }
 
-export function SupervisorWorkspace({ projects, onRefresh }) {
+export function SupervisorWorkspace({ projects, selectedProjectId, onSelect, onRefresh }) {
   return (
     <section className="subsection">
       <div className="page-heading">
@@ -250,7 +250,12 @@ export function SupervisorWorkspace({ projects, onRefresh }) {
       ) : (
         <div className="assigned-project-list">
           {projects.map((project) => (
-            <article className="assigned-project-card" key={project._id}>
+            <button
+              type="button"
+              className={`assigned-project-card ${selectedProjectId === project._id ? 'active' : ''}`}
+              key={project._id}
+              onClick={() => onSelect && onSelect(project)}
+            >
               <div className="detail-heading">
                 <div>
                   <p className="eyebrow">{project.category || 'Graduation project'}</p>
@@ -265,7 +270,7 @@ export function SupervisorWorkspace({ projects, onRefresh }) {
                   <span key={student._id}>{student.email}</span>
                 ))}
               </div>
-            </article>
+            </button>
           ))}
         </div>
       )}

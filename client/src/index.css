@@ -695,6 +695,128 @@ select:disabled {
   color: #17693b;
 }
 
+.status-pending {
+  background: #eff1f6;
+  color: #505a6d;
+}
+
+.assigned-project-card {
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.assigned-project-card:hover {
+  border-color: #c9c4f4;
+}
+
+.assigned-project-card.active {
+  border-color: #5148d9;
+  box-shadow: 0 0 0 3px rgba(81, 72, 217, 0.12);
+}
+
+.milestone-list,
+.submission-list {
+  display: grid;
+  gap: 16px;
+}
+
+.milestone-card,
+.submission-card {
+  padding: 18px;
+  border: 1px solid #e6e9f0;
+  border-radius: 13px;
+  background: #fff;
+}
+
+.milestone-card > p,
+.submission-card > p {
+  margin: 0 0 10px;
+  color: #626d80;
+  font-size: 0.88rem;
+}
+
+.milestone-card > .form-note,
+.submission-card > .form-note {
+  margin: 0 0 6px;
+}
+
+.deliverable-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #eef0f4;
+}
+
+.deliverable-form label {
+  display: grid;
+  gap: 7px;
+  color: #424d60;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.deliverable-form .full-width {
+  grid-column: 1 / -1;
+}
+
+.deliverable-form .action-row {
+  align-items: center;
+}
+
+.submission-summary {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid #e8eaf0;
+  border-radius: 11px;
+  background: #fafbfc;
+}
+
+.submission-summary-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.submission-summary p {
+  margin: 0 0 8px;
+  color: #4a5567;
+  font-size: 0.86rem;
+}
+
+.submission-summary small {
+  color: #7b8494;
+  font-size: 0.76rem;
+}
+
+.submission-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-bottom: 8px;
+}
+
+.submission-links a {
+  color: #4038c8;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.submission-links a:hover {
+  text-decoration: underline;
+}
+
+.submission-card .detail-heading h4 {
+  margin: 0;
+  font-size: 1rem;
+}
+
 @media (max-width: 800px) {
   .review-layout {
     grid-template-columns: 240px minmax(0, 1fr);
@@ -762,6 +884,14 @@ select:disabled {
   }
 
   .proposal-form .full-width {
+    grid-column: auto;
+  }
+
+  .deliverable-form {
+    grid-template-columns: 1fr;
+  }
+
+  .deliverable-form .full-width {
     grid-column: auto;
   }
 

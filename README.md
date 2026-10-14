@@ -405,8 +405,12 @@ those projects are reassigned.
 | -------- | ---------- | ------------- |
 | POST | `/api/projects/:id/milestones` | Create milestone |
 | GET | `/api/projects/:id/milestones` | List milestones |
-| POST | `/api/milestones/:id/submissions` | Student submits deliverable |
-| PATCH | `/api/submissions/:id/review` | Review submission |
+| POST | `/api/milestones/:id/submissions` | Student submits deliverable (multipart file and/or GitHub URL) |
+| GET | `/api/milestones/:id/submissions` | List submissions for a milestone |
+| GET | `/api/projects/:id/submissions` | List submissions for a project |
+| PATCH | `/api/submissions/:id/review` | Supervisor approves or requests a revision |
+
+Deliverables accept an optional uploaded file (PDF, Word, PowerPoint, Excel, ZIP, text or images up to 10 MB) and/or a GitHub URL, with an optional description. Files are screened by type and size and stored via Cloudinary when configured, otherwise on local disk under `/uploads`. Students can resubmit after a revision request; each submission keeps its own feedback and timestamps for history.
 
 ### Defense & Evaluation
 
@@ -494,6 +498,9 @@ those projects are reassigned.
   projectId: ObjectId,
   studentId: ObjectId,
   fileUrl?: String,
+  fileName?: String,
+  fileType?: String,
+  fileSize?: Number,
   githubUrl?: String,
   description: String,
   status: "submitted" | "approved" | "revision",

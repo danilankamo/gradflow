@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import SupervisorManagement, { SupervisorWorkspace } from './SupervisorManagement.jsx';
+import { StudentMilestones, SupervisorSubmissions } from './DeliverableWorkflow.jsx';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -37,6 +38,9 @@ function App() {
   const [assignmentProjects, setAssignmentProjects] = useState([]);
   const [dashboard, setDashboard] = useState(null);
   const [selectedProject, setSelectedProject] = useState(null);
+  const [milestones, setMilestones] = useState([]);
+  const [submissions, setSubmissions] = useState([]);
+  const [workspaceProjectId, setWorkspaceProjectId] = useState('');
   const [proposal, setProposal] = useState(emptyProposal);
   const [profile, setProfile] = useState({ name: '', department: '', bio: '', skills: '' });
   const [comment, setComment] = useState('');
@@ -52,6 +56,34 @@ function App() {
     },
     ...(body ? { body: JSON.stringify(body) } : {}),
   }), [token]);
+
+  const requestMultipart = useCallback(async (path, formData) => {
+    const response = await fetch(`${API_URL}${path}`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data.message || data.error || 'The request could not be completed');
+    }
+    return data;
+  }, [token]);
+
+  const loadProjectDeliverables = useCallback(async (projectId) => {
+    if (!projectId) {
+      setMilestones([]);
+      setSubmissions([]);
+      return;
+    }
+    const [milestoneData, submissionData] = await Promise.all([
+      request(`/api/projects/${projectId}/milestones`, apiOptions()),
+      request(`/api/projects/${projectId}/submissions`, apiOptions()),
+    ]);
+    setMilestones(milestoneData.data);
+    setSubmissions(submissionData.data);
+  }, [apiOptions]);
 
   const loadWorkspace = useCallback(async () => {
     if (!user || !token) return;
@@ -86,6 +118,17 @@ function App() {
           category: current.category || '',
           keywords: Array.isArray(current.keywords) ? current.keywords.join(', ') : '',
         } : emptyProposal);
+        if (current) {
+          const [milestoneData, submissionData] = await Promise.all([
+            request(`/api/projects/${current._id}/milestones`, apiOptions()),
+            request(`/api/projects/${current._id}/submissions`, apiOptions()),
+          ]);
+          setMilestones(milestoneData.data);
+          setSubmissions(submissionData.data);
+        } else {
+          setMilestones([]);
+          setSubmissions([]);
+        }
       } else if (user.role === 'supervisor') {
         const result = await request('/api/projects/supervisor/assigned', apiOptions());
         setProjects(result.data);
@@ -136,7 +179,7 @@ function App() {
     if (!user) return [];
     const shared = [{ key: 'overview', label: 'Overview' }, { key: 'profile', label: 'Profile' }];
     if (user.role === 'student') {
-      return [...shared, { key: 'proposal', label: 'My Proposal' }];
+      return [...shared, { key: 'proposal', label: 'My Proposal' }, { key: 'milestones', label: 'Milestones' }];
     }
     if (user.role === 'coordinator') {
       return [
@@ -331,6 +374,62 @@ function App() {
     }
   };
 
+  const handleSelectProject = (project) => {
+    setWorkspaceProjectId(project._id);
+    setBusy(true);
+    setError('');
+    loadProjectDeliverables(project._id)
+      .catch((loadError) => setError(loadError.message))
+      .finally(() => setBusy(false));
+  };
+
+  const handleSubmitDeliverable = async (milestoneId, { file, githubUrl, description }) => {
+    setBusy(true);
+    setError('');
+    setMessage('');
+    try {
+      const formData = new FormData();
+      if (file) formData.append('file', file);
+      if (githubUrl.trim()) formData.append('githubUrl', githubUrl.trim());
+      if (description.trim()) formData.append('description', description.trim());
+      await requestMultipart(`/api/milestones/${milestoneId}/submissions`, formData);
+      setMessage('Deliverable submitted for supervisor review.');
+      await loadWorkspace();
+      return true;
+    } catch (submitError) {
+      setError(submitError.message);
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleReviewSubmission = async (submissionId, action, feedback) => {
+    setBusy(true);
+    setError('');
+    setMessage('');
+    try {
+      const result = await request(
+        `/api/submissions/${submissionId}/review`,
+        apiOptions('PATCH', { action, feedback })
+      );
+      setMessage(
+        result.data.status === 'approved'
+          ? 'Submission approved.'
+          : 'Revision requested with feedback.'
+      );
+      if (user.role === 'supervisor' && workspaceProjectId) {
+        await loadProjectDeliverables(workspaceProjectId);
+      } else {
+        await loadWorkspace();
+      }
+    } catch (reviewError) {
+      setError(reviewError.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const handleLogout = async () => {
     try {
       if (token) await request('/api/auth/logout', apiOptions());
@@ -345,6 +444,9 @@ function App() {
       setAssignmentProjects([]);
       setSelectedProject(null);
       setDashboard(null);
+      setMilestones([]);
+      setSubmissions([]);
+      setWorkspaceProjectId('');
       setMessage('');
       setError('');
     }
@@ -458,6 +560,16 @@ function App() {
             </section>
           )}
 
+          {route === 'milestones' && user.role === 'student' && (
+            <StudentMilestones
+              project={projects[0]}
+              milestones={milestones}
+              submissions={submissions}
+              busy={busy}
+              onSubmit={handleSubmitDeliverable}
+            />
+          )}
+
           {route === 'review' && user.role === 'coordinator' && (
             <CoordinatorReview
               projects={projects}
@@ -502,7 +614,24 @@ function App() {
 
           {route === 'workspace' && (
             user.role === 'supervisor'
-              ? <SupervisorWorkspace projects={projects} onRefresh={loadWorkspace} />
+              ? (
+                <>
+                  <SupervisorWorkspace
+                    projects={projects}
+                    selectedProjectId={workspaceProjectId}
+                    onSelect={handleSelectProject}
+                    onRefresh={loadWorkspace}
+                  />
+                  <SupervisorSubmissions
+                    project={projects.find((project) => project._id === workspaceProjectId) || null}
+                    milestones={milestones}
+                    submissions={submissions}
+                    busy={busy}
+                    onReview={handleReviewSubmission}
+                    onRefresh={() => handleSelectProject({ _id: workspaceProjectId })}
+                  />
+                </>
+              )
               : <div className="info-card"><h3>{user.role} workspace</h3><p>Role-specific project tools will appear here as their workflows are implemented.</p></div>
           )}
         </section>

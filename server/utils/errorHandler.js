@@ -17,6 +17,14 @@ const errorHandler = (err, req, res, next) => {
     error = { message, statusCode: 400 };
   }
 
+  if (err.name === 'MulterError') {
+    const message =
+      err.code === 'LIMIT_FILE_SIZE'
+        ? 'Uploaded file is too large. The maximum size is 10 MB.'
+        : 'File upload failed. Please try a different file.';
+    error = { message, statusCode: 400 };
+  }
+
   res.status(error.statusCode || 500).json({
     success: false,
     error: error.message || 'Server Error',
