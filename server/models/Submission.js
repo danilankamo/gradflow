@@ -20,6 +20,15 @@ const SubmissionSchema = new mongoose.Schema(
     fileUrl: {
       type: String,
     },
+    fileName: {
+      type: String,
+    },
+    fileType: {
+      type: String,
+    },
+    fileSize: {
+      type: Number,
+    },
     githubUrl: {
       type: String,
     },
