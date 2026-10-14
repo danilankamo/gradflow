@@ -9,18 +9,40 @@ const TERMINAL_STATUSES = [
   'Archived',
 ];
 
+const getMilestoneSummary = (milestones = []) => {
+  const safeMilestones = Array.isArray(milestones) ? milestones : [];
+  const approvedCount = safeMilestones.filter((milestone) => milestone.status === 'approved').length;
+  const total = safeMilestones.length || 1;
+  const progress = Math.round((approvedCount / total) * 100);
+  const nextDeadline =
+    safeMilestones
+      .filter((milestone) => milestone.dueDate && milestone.status !== 'approved')
+      .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))[0] || null;
+  const overdue = safeMilestones.filter((milestone) => {
+    if (!milestone.dueDate || milestone.status === 'approved') return false;
+    return new Date(milestone.dueDate) < new Date();
+  });
+
+  return {
+    total,
+    completed: approvedCount,
+    progress,
+    nextDeadline,
+    overdue,
+  };
+};
+
 const syncProjectProgress = async (projectId) => {
   const project = await Project.findById(projectId);
   if (!project) return null;
 
   const milestones = await Milestone.find({ projectId }).sort({ order: 1, dueDate: 1 });
-  const approvedCount = milestones.filter((milestone) => milestone.status === 'approved').length;
-  const total = milestones.length || 1;
+  const summary = getMilestoneSummary(milestones);
 
-  project.progress = Math.round((approvedCount / total) * 100);
+  project.progress = summary.progress;
   if (
     milestones.length &&
-    approvedCount === milestones.length &&
+    summary.completed === milestones.length &&
     !TERMINAL_STATUSES.includes(project.status)
   ) {
     project.status = 'Final Submission';
@@ -30,4 +52,4 @@ const syncProjectProgress = async (projectId) => {
   return project;
 };
 
-module.exports = { syncProjectProgress, TERMINAL_STATUSES };
+module.exports = { syncProjectProgress, getMilestoneSummary, TERMINAL_STATUSES };
