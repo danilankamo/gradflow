@@ -14,6 +14,14 @@ const editableFields = [
   'category',
   'keywords',
 ];
+const defaultMilestoneSequence = [
+  'Requirements',
+  'System Design',
+  'Implementation',
+  'Testing',
+  'Final Report',
+  'Defense',
+];
 
 const getProjectAccessFilter = (user) => {
   if (user.role === 'coordinator') return {};
@@ -26,6 +34,77 @@ const normalizeList = (value) =>
   Array.isArray(value)
     ? value.map((item) => String(item).trim()).filter(Boolean)
     : value;
+
+const getMilestoneSummary = (milestones = []) => {
+  const safeMilestones = Array.isArray(milestones) ? milestones : [];
+  const approvedCount = safeMilestones.filter((milestone) => milestone.status === 'approved').length;
+  const total = safeMilestones.length || 1;
+  const progress = Math.round((approvedCount / total) * 100);
+  const nextDeadline = safeMilestones
+    .filter((milestone) => milestone.dueDate && milestone.status !== 'approved')
+    .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))[0] || null;
+  const overdue = safeMilestones.filter((milestone) => {
+    if (!milestone.dueDate || milestone.status === 'approved') return false;
+    return new Date(milestone.dueDate) < new Date();
+  });
+
+  return {
+    total,
+    completed: approvedCount,
+    progress,
+    nextDeadline,
+    overdue,
+  };
+};
+
+const getProjectMilestoneMap = async (projectIds = []) => {
+  if (!projectIds.length || mongoose.connection.readyState === 0) {
+    return {};
+  }
+
+  const Milestone = require('../models/Milestone');
+  const milestoneLookup = await Milestone.find({ projectId: { $in: projectIds } }).sort({ projectId: 1, order: 1 });
+  return milestoneLookup.reduce((map, milestone) => {
+    const projectId = String(milestone.projectId);
+    if (!map[projectId]) map[projectId] = [];
+    map[projectId].push(milestone);
+    return map;
+  }, {});
+};
+
+const syncProjectProgress = async (projectId) => {
+  const Milestone = require('../models/Milestone');
+  const project = await Project.findById(projectId);
+  if (!project) return null;
+
+  const milestones = await Milestone.find({ projectId }).sort({ order: 1, dueDate: 1 });
+  const summary = getMilestoneSummary(milestones);
+  project.progress = summary.progress;
+  if (milestones.length && summary.completed === milestones.length) {
+    if (!['Final Submission', 'Defense Scheduled', 'Evaluated', 'Completed', 'Archived'].includes(project.status)) {
+      project.status = 'Final Submission';
+    }
+  }
+  await project.save();
+  return { project, summary };
+};
+
+const createDefaultMilestones = async (projectId) => {
+  const Milestone = require('../models/Milestone');
+  const existing = await Milestone.countDocuments({ projectId });
+  if (existing > 0) return []; 
+
+  const milestones = defaultMilestoneSequence.map((title, index) => ({
+    projectId,
+    title,
+    description: `${title} milestone for the project lifecycle.`,
+    order: index + 1,
+    dueDate: new Date(Date.now() + (index + 1) * 14 * 24 * 60 * 60 * 1000),
+    status: 'pending',
+  }));
+
+  return Milestone.insertMany(milestones);
+};
 
 exports.createProject = async (req, res, next) => {
   try {
@@ -48,7 +127,9 @@ exports.createProject = async (req, res, next) => {
       ...projectData,
       students: [req.user.id],
       status: 'Draft',
+      progress: 0,
     });
+    await createDefaultMilestones(project._id);
     res.status(201).json({ success: true, data: project });
   } catch (err) {
     next(err);
@@ -167,7 +248,31 @@ exports.getAssignedProjects = async (req, res, next) => {
     const projects = await Project.find({ supervisorId: req.user._id })
       .populate('students', 'name email department studentId')
       .sort({ updatedAt: -1 });
-    res.status(200).json({ success: true, count: projects.length, data: projects });
+
+    const projectIds = projects.map((project) => project._id);
+    let milestoneMap = {};
+    try {
+      milestoneMap = await getProjectMilestoneMap(projectIds);
+    } catch (milestoneError) {
+      milestoneMap = {};
+    }
+
+    const enrichedProjects = projects.map((project) => {
+      const projectData = project && typeof project.toObject === 'function' ? project.toObject() : project;
+      const summary = getMilestoneSummary(milestoneMap[String(projectData._id)] || []);
+      return {
+        ...projectData,
+        progress: summary.progress,
+        milestoneSummary: {
+          total: summary.total,
+          completed: summary.completed,
+          nextDeadline: summary.nextDeadline ? summary.nextDeadline.dueDate : null,
+          overdue: summary.overdue.length,
+        },
+      };
+    });
+
+    res.status(200).json({ success: true, count: enrichedProjects.length, data: enrichedProjects });
   } catch (err) {
     next(err);
   }
@@ -184,6 +289,22 @@ exports.getProject = async (req, res, next) => {
     if (!project) {
       return res.status(404).json({ success: false, message: 'Project not found' });
     }
+
+    let milestones = [];
+    try {
+      milestones = await require('../models/Milestone').find({ projectId: project._id }).sort({ order: 1, dueDate: 1 });
+    } catch (milestoneError) {
+      milestones = [];
+    }
+    const summary = getMilestoneSummary(milestones);
+    project._doc.milestoneSummary = {
+      total: summary.total,
+      completed: summary.completed,
+      nextDeadline: summary.nextDeadline ? summary.nextDeadline.dueDate : null,
+      overdue: summary.overdue.length,
+    };
+    project._doc.progress = summary.progress;
+
     res.status(200).json({ success: true, data: project });
   } catch (err) {
     next(err);
@@ -222,6 +343,38 @@ exports.submitProposal = async (req, res, next) => {
       projectId: project._id,
       status: project.status,
       submittedAt: project.submittedAt,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.getProjectMilestones = async (req, res, next) => {
+  try {
+    const project = await Project.findOne({
+      _id: req.params.id,
+      ...getProjectAccessFilter(req.user),
+    });
+    if (!project) {
+      return res.status(404).json({ success: false, message: 'Project not found' });
+    }
+
+    const Milestone = require('../models/Milestone');
+    const milestones = await Milestone.find({ projectId: req.params.id }).sort({ order: 1, dueDate: 1 });
+    const summary = getMilestoneSummary(milestones);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        project: {
+          _id: project._id,
+          title: project.title,
+          status: project.status,
+          progress: project.progress,
+        },
+        summary,
+        milestones,
+      },
     });
   } catch (err) {
     next(err);
@@ -270,6 +423,38 @@ exports.reviewProposal = async (req, res, next) => {
     await project.save();
     await project.populate('students', 'name email department studentId');
     res.status(200).json({ success: true, data: project });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.createProjectMilestone = async (req, res, next) => {
+  try {
+    const project = await Project.findOne({
+      _id: req.params.id,
+      ...getProjectAccessFilter(req.user),
+    });
+    if (!project) {
+      return res.status(404).json({ success: false, message: 'Project not found' });
+    }
+
+    const Milestone = require('../models/Milestone');
+    const { title, description, dueDate, order } = req.body;
+    if (!title) {
+      return res.status(400).json({ success: false, message: 'Milestone title is required' });
+    }
+
+    const milestone = await Milestone.create({
+      projectId: req.params.id,
+      title,
+      description,
+      dueDate: dueDate ? new Date(dueDate) : undefined,
+      order: order ?? (await Milestone.countDocuments({ projectId: req.params.id })) + 1,
+      status: 'pending',
+    });
+
+    await syncProjectProgress(req.params.id);
+    res.status(201).json({ success: true, data: milestone });
   } catch (err) {
     next(err);
   }
