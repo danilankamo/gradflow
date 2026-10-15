@@ -27,8 +27,331 @@ async function request(path, options = {}) {
   return data;
 }
 
+function Icon({ name, size = 18, fill = false, className = '' }) {
+  return (
+    <span
+      className={`material-symbols-outlined ${className}`.trim()}
+      style={{ fontSize: `${size}px`, fontVariationSettings: fill ? "'FILL' 1" : undefined, lineHeight: 1 }}
+      aria-hidden="true"
+    >
+      {name}
+    </span>
+  );
+}
+
+const AUTH_ROLES = [
+  {
+    id: 'student',
+    label: 'Student',
+    sub: 'Proposer/Lead',
+    icon: 'school',
+    note: 'Student Candidate mode: submit abstracts, track advisor sign-offs, and upload viva presentation decks.',
+  },
+  {
+    id: 'supervisor',
+    label: 'Supervisor',
+    sub: 'Advisory/Sign-off',
+    icon: 'psychology',
+    note: 'Supervisor / Faculty Advisory mode: review specifications, sign off proposal milestones, and issue mid-eval ratings.',
+  },
+  {
+    id: 'committee',
+    label: 'Committee',
+    sub: 'Panel / Rubric',
+    icon: 'balance',
+    note: 'Committee & Defence Panel mode: schedule oral defence panels, score standard rubrics, and release consensus verdicts.',
+  },
+];
+
+const MILESTONE_STEPS = [
+  { icon: 'check_circle', fill: true, label: '1. Proposal', state: 'Approved', wrap: 'bg-surface-container-high', iconTone: 'text-on-tertiary-container', stateTone: 'text-on-surface-variant' },
+  { icon: 'edit_document', fill: true, label: '2. Design', state: 'In Review', wrap: 'bg-surface-container', iconTone: 'text-secondary', stateTone: 'text-secondary' },
+  { icon: 'verified', fill: false, label: '3. Mid-Eval', state: 'Week 14', wrap: 'bg-surface-container-low opacity-80', iconTone: 'text-on-surface-variant', stateTone: 'text-on-surface-variant' },
+  { icon: 'gavel', fill: false, label: '4. Defence', state: 'Viva Panel', wrap: 'bg-surface-container-low opacity-80', iconTone: 'text-on-surface-variant', stateTone: 'text-on-surface-variant' },
+];
+
+const authField = 'w-full rounded-lg border-0 bg-surface-container-lowest px-3 py-2.5 text-sm text-on-surface shadow-sm transition-shadow outline-none placeholder:text-on-surface-variant focus:border-0 focus:ring-0 focus:shadow-md disabled:cursor-not-allowed disabled:opacity-60';
+const authFieldWithIcon = 'w-full rounded-lg border-0 bg-surface-container-lowest py-2.5 pl-10 pr-3 text-sm text-on-surface shadow-sm transition-shadow outline-none placeholder:text-on-surface-variant focus:border-0 focus:ring-0 focus:shadow-md';
+const authPasswordField = 'w-full rounded-lg border-0 bg-surface-container-lowest py-2.5 pl-10 pr-10 text-sm text-on-surface shadow-sm transition-shadow outline-none placeholder:text-on-surface-variant focus:border-0 focus:ring-0 focus:shadow-md';
+
+function AuthScreen({ authMode, setAuthMode, authForm, setAuthForm, authRole, setAuthRole, busy, error, onSubmit }) {
+  const [showPassword, setShowPassword] = useState(false);
+  const update = (field) => (event) => setAuthForm({ ...authForm, [field]: event.target.value });
+  const activeRole = AUTH_ROLES.find((role) => role.id === authRole) || AUTH_ROLES[0];
+
+  return (
+    <section className="mx-auto flex w-full max-w-lg flex-col gap-5 py-2">
+      <header className="flex flex-col items-center text-center">
+        <div className="relative mb-3 flex h-20 w-20 items-center justify-center rounded-full bg-surface-container shadow-sm">
+          <span className="brand-mark h-14 w-14 rounded-full text-2xl">G</span>
+          <span className="absolute -right-1 -bottom-1 flex h-5 w-5 items-center justify-center rounded-full bg-surface-container-lowest shadow-sm">
+            <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-on-tertiary-container" />
+          </span>
+        </div>
+        <div className="mb-1 inline-flex items-center gap-1.5 rounded-full bg-surface-container-high px-3 py-0.5 text-xs font-medium text-on-surface-variant shadow-sm">
+          <span className="h-1.5 w-1.5 rounded-full bg-on-tertiary-container" />
+          Cycle 2024–2025 • Active Milestones
+        </div>
+        <h1 className="font-display text-3xl font-extrabold text-on-surface">GradFlow</h1>
+        <p className="mt-1 max-w-xs text-sm text-on-surface-variant">Final Year Project &amp; Defence Management Portal</p>
+      </header>
+
+      <section className="rounded-xl bg-surface-container-lowest p-4 shadow-sm">
+        <div className="mb-3 flex items-center justify-between">
+          <span className="text-xs font-semibold tracking-wider text-on-surface-variant uppercase">Capstoning Milestone Track</span>
+          <span className="text-xs font-semibold text-secondary">Cohort 2025</span>
+        </div>
+        <div className="grid grid-cols-4 gap-1.5">
+          {MILESTONE_STEPS.map((step) => (
+            <div key={step.label} className={`flex flex-col items-center rounded-lg p-1.5 text-center ${step.wrap}`}>
+              <Icon name={step.icon} size={18} fill={step.fill} className={step.iconTone} />
+              <span className="mt-1 text-[10px] leading-tight font-semibold text-on-surface">{step.label}</span>
+              <span className={`text-[9px] ${step.stateTone}`}>{step.state}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <div className="flex items-center rounded-full bg-surface-container p-1 shadow-inner">
+        <button
+          type="button"
+          onClick={() => setAuthMode('login')}
+          className={`flex-1 rounded-full px-4 py-2 text-sm font-semibold transition-all duration-200 ${authMode === 'login' ? 'bg-primary-container text-on-primary shadow-sm' : 'text-on-surface-variant hover:text-on-surface'}`}
+        >
+          Sign In
+        </button>
+        <button
+          type="button"
+          onClick={() => setAuthMode('register')}
+          className={`flex-1 rounded-full px-4 py-2 text-sm font-semibold transition-all duration-200 ${authMode === 'register' ? 'bg-primary-container text-on-primary shadow-sm' : 'text-on-surface-variant hover:text-on-surface'}`}
+        >
+          Register Team
+        </button>
+      </div>
+
+      <section className="flex flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-medium text-on-surface-variant">Academic Role</span>
+          <span className="flex items-center gap-0.5 text-xs font-semibold text-secondary">
+            <Icon name="shield_person" size={14} /> Verified Portal
+          </span>
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          {AUTH_ROLES.map((role) => (
+            <button
+              key={role.id}
+              type="button"
+              onClick={() => setAuthRole(role.id)}
+              className={`flex flex-col items-center justify-center rounded-xl p-3 text-center shadow-sm transition-all duration-150 ${authRole === role.id ? 'bg-primary-container text-on-primary' : 'bg-surface-container-lowest text-on-surface-variant'}`}
+            >
+              <Icon name={role.icon} size={22} className="mb-1" />
+              <span className="text-xs leading-tight font-semibold">{role.label}</span>
+              <span className="mt-0.5 text-[9px] opacity-80">{role.sub}</span>
+            </button>
+          ))}
+        </div>
+        <div className="mt-1 flex items-start gap-2 rounded-lg bg-surface-container-low p-3 shadow-sm">
+          <Icon name="info" size={18} className="mt-0.5 shrink-0 text-secondary" />
+          <p className="text-xs text-on-surface-variant">{activeRole.note}</p>
+        </div>
+      </section>
+
+      {authMode === 'login' ? (
+        <form className="flex flex-col gap-4" onSubmit={onSubmit}>
+          {error && <div className="alert alert-error" role="alert">{error}</div>}
+          <div className="flex flex-col gap-1">
+            <label htmlFor="signin-email" className="flex items-center justify-between text-on-surface">
+              <span>Institutional Identifier</span>
+              <span className="text-xs font-normal text-on-surface-variant">Email</span>
+            </label>
+            <div className="relative flex items-center">
+              <Icon name="badge" size={20} className="absolute top-1/2 left-3 -translate-y-1/2 text-on-surface-variant" />
+              <input
+                id="signin-email"
+                type="email"
+                required
+                autoComplete="email"
+                className={authFieldWithIcon}
+                placeholder="e.g. j.harvard@university.edu"
+                value={authForm.email}
+                onChange={update('email')}
+              />
+            </div>
+            <p className="pl-1 text-[11px] text-on-surface-variant">Use your official university email address.</p>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label htmlFor="signin-password" className="text-on-surface">Access Key / Password</label>
+            <div className="relative flex items-center">
+              <Icon name="lock" size={20} className="absolute top-1/2 left-3 -translate-y-1/2 text-on-surface-variant" />
+              <input
+                id="signin-password"
+                type={showPassword ? 'text' : 'password'}
+                required
+                minLength={8}
+                autoComplete="current-password"
+                className={authPasswordField}
+                placeholder="••••••••••••"
+                value={authForm.password}
+                onChange={update('password')}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((value) => !value)}
+                className="absolute top-1/2 right-2 -translate-y-1/2 p-1 text-on-surface-variant hover:text-on-surface"
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                <Icon name={showPassword ? 'visibility_off' : 'visibility'} size={18} />
+              </button>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between pt-1">
+            <label className="flex items-center gap-2 text-on-surface">
+              <input type="checkbox" defaultChecked className="mt-0 h-4 w-4 rounded bg-surface-container-lowest text-secondary" />
+              <span className="text-sm">Remember this workstation</span>
+            </label>
+            <span className="flex items-center gap-1 text-xs text-on-surface-variant">
+              <Icon name="lock_clock" size={14} /> 14d session
+            </span>
+          </div>
+
+          <button
+            type="submit"
+            disabled={busy}
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary-container px-4 py-3 text-sm font-semibold text-on-primary shadow-md transition-all hover:brightness-110 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <span>{busy ? 'Please wait…' : 'Enter Portal'}</span>
+            {!busy && <Icon name="arrow_forward" size={18} />}
+          </button>
+        </form>
+      ) : (
+        <form className="flex flex-col gap-4" onSubmit={onSubmit}>
+          {error && <div className="alert alert-error" role="alert">{error}</div>}
+          <div className="flex items-start gap-2 rounded-lg bg-surface-container-high p-3 shadow-sm">
+            <Icon name="group_add" size={20} className="mt-0.5 shrink-0 text-secondary" />
+            <div>
+              <h4 className="text-sm font-semibold text-on-surface">FYP Cohort Candidate Onboarding</h4>
+              <p className="text-xs text-on-surface-variant">Register your project roster, nominate a capstone advisor &amp; claim your milestone workspace.</p>
+            </div>
+          </div>
+
+          {authRole !== 'student' && (
+            <p className="rounded-lg bg-surface-container-low px-3 py-2 text-xs text-on-surface-variant">
+              Staff and committee access is provisioned by a coordinator. New registrations always start with the Student role.
+            </p>
+          )}
+
+          <div className="flex flex-col gap-1">
+            <label htmlFor="reg-name" className="text-on-surface">Candidate / Team Lead Name</label>
+            <div className="relative flex items-center">
+              <Icon name="person" size={20} className="absolute top-1/2 left-3 -translate-y-1/2 text-on-surface-variant" />
+              <input
+                id="reg-name"
+                type="text"
+                required
+                className={authFieldWithIcon}
+                placeholder="e.g. Alex Morgan"
+                value={authForm.name}
+                onChange={update('name')}
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label htmlFor="reg-email" className="text-on-surface">Official University Email</label>
+            <div className="relative flex items-center">
+              <Icon name="alternate_email" size={20} className="absolute top-1/2 left-3 -translate-y-1/2 text-on-surface-variant" />
+              <input
+                id="reg-email"
+                type="email"
+                required
+                autoComplete="email"
+                className={authFieldWithIcon}
+                placeholder="student@university.edu"
+                value={authForm.email}
+                onChange={update('email')}
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label htmlFor="reg-password" className="text-on-surface">Access Key / Password</label>
+            <div className="relative flex items-center">
+              <Icon name="lock" size={20} className="absolute top-1/2 left-3 -translate-y-1/2 text-on-surface-variant" />
+              <input
+                id="reg-password"
+                type={showPassword ? 'text' : 'password'}
+                required
+                minLength={8}
+                autoComplete="new-password"
+                className={authPasswordField}
+                placeholder="At least 8 characters"
+                value={authForm.password}
+                onChange={update('password')}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((value) => !value)}
+                className="absolute top-1/2 right-2 -translate-y-1/2 p-1 text-on-surface-variant hover:text-on-surface"
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                <Icon name={showPassword ? 'visibility_off' : 'visibility'} size={18} />
+              </button>
+            </div>
+            <p className="pl-1 text-[11px] text-on-surface-variant">Minimum 8 characters.</p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <div className="flex flex-col gap-1">
+              <label htmlFor="reg-student-id" className="text-on-surface">Matric / Roll No.</label>
+              <input
+                id="reg-student-id"
+                type="text"
+                className={authField}
+                placeholder="CS-2021-042"
+                value={authForm.studentId}
+                onChange={update('studentId')}
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label htmlFor="reg-department" className="text-on-surface">Department</label>
+              <input
+                id="reg-department"
+                type="text"
+                className={authField}
+                placeholder="e.g. Computer Science"
+                value={authForm.department}
+                onChange={update('department')}
+              />
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={busy}
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary-container px-4 py-3 text-sm font-semibold text-on-primary shadow-md transition-all hover:brightness-110 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <span>{busy ? 'Please wait…' : 'Create Account'}</span>
+            {!busy && <Icon name="verified_user" size={18} />}
+          </button>
+        </form>
+      )}
+
+      <footer className="flex flex-col items-center gap-2 pt-1 text-center">
+        <div className="inline-flex items-center gap-2 rounded-full bg-surface-container px-3 py-1 text-xs font-medium text-on-surface-variant shadow-sm">
+          <Icon name="verified" size={15} className="text-on-tertiary-container" />
+          Academic Integrity Compliant
+        </div>
+        <p className="text-[11px] text-on-surface-variant opacity-75">Faculty of Computing &amp; Engineering Science • Rev 4.8.2</p>
+      </footer>
+    </section>
+  );
+}
+
 function App() {
   const [authMode, setAuthMode] = useState('login');
+  const [authRole, setAuthRole] = useState('student');
   const [authForm, setAuthForm] = useState({ name: '', email: '', password: '', department: '', studentId: '' });
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(() => localStorage.getItem('gradflow-token') || '');
@@ -459,49 +782,34 @@ function App() {
 
   return (
     <main className="app-shell">
-      <header className="topbar">
-        <div className="brand">
-          <span className="brand-mark">G</span>
-          <div><p className="eyebrow">GradFlow</p><h1>Graduation project workspace</h1></div>
-        </div>
-        {user && (
+      {user && (
+        <header className="topbar">
+          <div className="brand">
+            <span className="brand-mark">G</span>
+            <div><p className="eyebrow">GradFlow</p><h1>Graduation project workspace</h1></div>
+          </div>
           <div className="account">
             <span>{user.name}<small>{user.role}</small></span>
             <button className="button button-quiet" type="button" onClick={handleLogout}>Sign out</button>
           </div>
-        )}
-      </header>
+        </header>
+      )}
 
-      {error && <div className="alert alert-error" role="alert">{error}</div>}
-      {message && <div className="alert alert-success" role="status">{message}</div>}
+      {user && error && <div className="alert alert-error" role="alert">{error}</div>}
+      {user && message && <div className="alert alert-success" role="status">{message}</div>}
 
       {!user ? (
-        <section className="auth-card">
-          <div className="auth-intro">
-            <p className="eyebrow">Welcome</p>
-            <h2>{authMode === 'login' ? 'Sign in to GradFlow' : 'Create a student account'}</h2>
-            <p>Manage proposals and keep the graduation project process moving.</p>
-          </div>
-          <div className="tabs">
-            <button className={authMode === 'login' ? 'selected' : ''} type="button" onClick={() => setAuthMode('login')}>Sign in</button>
-            <button className={authMode === 'register' ? 'selected' : ''} type="button" onClick={() => setAuthMode('register')}>Register</button>
-          </div>
-          <form className="form-grid" onSubmit={handleAuth}>
-            {authMode === 'register' && (
-              <>
-                <label>Full name<input required value={authForm.name} onChange={(event) => setAuthForm({ ...authForm, name: event.target.value })} /></label>
-                <label>Department<input value={authForm.department} onChange={(event) => setAuthForm({ ...authForm, department: event.target.value })} /></label>
-                <label>Student ID<input value={authForm.studentId} onChange={(event) => setAuthForm({ ...authForm, studentId: event.target.value })} /></label>
-              </>
-            )}
-            <label>Email<input type="email" required value={authForm.email} onChange={(event) => setAuthForm({ ...authForm, email: event.target.value })} /></label>
-            <label>Password<input type="password" minLength={8} required value={authForm.password} onChange={(event) => setAuthForm({ ...authForm, password: event.target.value })} /></label>
-            <button className="button button-primary" type="submit" disabled={busy}>
-              {busy ? 'Please wait…' : authMode === 'login' ? 'Sign in' : 'Create account'}
-            </button>
-          </form>
-          {authMode === 'register' && <p className="form-note">New registrations receive the Student role. Staff access is provisioned by a coordinator.</p>}
-        </section>
+        <AuthScreen
+          authMode={authMode}
+          setAuthMode={setAuthMode}
+          authForm={authForm}
+          setAuthForm={setAuthForm}
+          authRole={authRole}
+          setAuthRole={setAuthRole}
+          busy={busy}
+          error={error}
+          onSubmit={handleAuth}
+        />
       ) : (
         <section className="workspace">
           <nav className="route-nav" aria-label="Primary navigation">
