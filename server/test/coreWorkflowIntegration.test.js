@@ -3,9 +3,11 @@ const assert = require('node:assert/strict');
 const Project = require('../models/Project');
 const Milestone = require('../models/Milestone');
 const Submission = require('../models/Submission');
+const Defense = require('../models/Defense');
 const User = require('../models/User');
 const projectController = require('../controllers/projectController');
 const submissionController = require('../controllers/submissionController');
+const defenseController = require('../controllers/defenseController');
 
 const makeId = (() => {
   let counter = 0;
@@ -94,6 +96,7 @@ const createDatabase = () => {
   const projects = [];
   const milestones = [];
   const submissions = [];
+  const defenses = [];
   const users = [];
 
   const attach = (collection) => ({
@@ -104,7 +107,7 @@ const createDatabase = () => {
     },
     findById: (id) => makeQuery(async () => collection.find((doc) => String(doc._id) === String(id)) || null),
     findOne: (filter) => makeQuery(async () => collection.find((doc) => matchesFilter(doc, filter)) || null),
-    find: (filter) => makeQuery(async () => collection.filter((doc) => matchesFilter(doc, filter))),
+    find: (filter) => makeQuery(async () => (filter ? collection.filter((doc) => matchesFilter(doc, filter)) : [...collection])),
   });
 
   const projectMethods = attach(projects);
@@ -138,9 +141,19 @@ const createDatabase = () => {
   Submission.findById = submissionMethods.findById;
   Submission.find = submissionMethods.find;
 
-  User.findOne = (filter) => makeQuery(async () => users.find((doc) => matchesFilter(doc, filter)) || null);
+  const defenseMethods = attach(defenses);
+  Defense.create = defenseMethods.create;
+  Defense.findById = defenseMethods.findById;
+  Defense.findOne = defenseMethods.findOne;
+  Defense.find = defenseMethods.find;
 
-  return { projects, milestones, submissions, users };
+  User.findOne = (filter) => makeQuery(async () => users.find((doc) => matchesFilter(doc, filter)) || null);
+  User.find = (filter) => makeQuery(async () => (filter ? users.filter((doc) => matchesFilter(doc, filter)) : [...users]));
+
+  const Notification = require('../models/Notification');
+  Notification.insertMany = async () => [];
+
+  return { projects, milestones, submissions, defenses, users };
 };
 
 test('core lifecycle runs end to end from proposal to supervisor feedback', async () => {
@@ -340,3 +353,225 @@ test('the workflow rejects an invalid proposal status transition', async () => {
   const storedProject = db.projects.find((project) => project._id === projectId);
   assert.equal(storedProject.status, 'Submitted');
 });
+
+test('complete lifecycle advances through milestone approvals, final submission, and conflict-safe defense scheduling', async () => {
+  const db = createDatabase();
+
+  const student = { _id: makeId(), role: 'student', name: 'Alice Student' };
+  const supervisor = { _id: makeId(), role: 'supervisor', name: 'Dr. Supervisor' };
+  const coordinator = { _id: makeId(), role: 'coordinator', name: 'Prof. Coordinator' };
+  const examiner1 = { _id: makeId(), role: 'examiner', name: 'Dr. Examiner Alpha' };
+  const examiner2 = { _id: makeId(), role: 'examiner', name: 'Dr. Examiner Beta' };
+  db.users.push(student, supervisor, coordinator, examiner1, examiner2);
+
+  // 1. Create and submit project proposal
+  const createRes = responseRecorder();
+  await projectController.createProject(
+    {
+      body: {
+        title: 'Autonomous Robotics Platform',
+        abstract: 'Autonomous navigation system',
+        problemStatement: 'Obstacle avoidance is slow',
+        methodology: 'ROS2 and LiDAR',
+      },
+      user: { id: student._id },
+    },
+    createRes,
+    throwNext
+  );
+  const projectId = createRes.body.data._id;
+
+  const submitRes = responseRecorder();
+  await projectController.submitProposal(
+    { params: { id: projectId }, user: { id: student._id } },
+    submitRes,
+    throwNext
+  );
+  assert.equal(submitRes.body.status, 'Submitted');
+
+  // 2. Coordinator approves and assigns supervisor
+  const reviewRes = responseRecorder();
+  await projectController.reviewProposal(
+    { params: { id: projectId }, body: { action: 'approve' } },
+    reviewRes,
+    throwNext
+  );
+  assert.equal(reviewRes.body.data.status, 'Approved');
+
+  const assignRes = responseRecorder();
+  await projectController.assignSupervisor(
+    { params: { id: projectId }, body: { supervisorId: supervisor._id } },
+    assignRes,
+    throwNext
+  );
+  assert.equal(assignRes.body.data.status, 'In Progress');
+
+  // 3. Attempt to schedule defense while In Progress -> REJECTED (409)
+  const prematureDefenseRes = responseRecorder();
+  await defenseController.createDefense(
+    {
+      body: {
+        projectId,
+        date: '2026-10-25',
+        startTime: '09:00',
+        endTime: '10:30',
+        room: 'Hall A',
+        examinerIds: [examiner1._id],
+      },
+      user: { role: 'coordinator' },
+    },
+    prematureDefenseRes,
+    throwNext
+  );
+  assert.equal(prematureDefenseRes.statusCode, 409);
+  assert.match(prematureDefenseRes.body.message, /Final Submission/i);
+
+  // 4. Student completes all 6 milestones with supervisor approvals
+  const projectMilestones = db.milestones.filter(
+    (m) => String(m.projectId) === String(projectId)
+  );
+  assert.equal(projectMilestones.length, 6);
+
+  for (const milestone of projectMilestones) {
+    const subRes = responseRecorder();
+    await submissionController.createSubmission(
+      {
+        params: { id: milestone._id },
+        user: { _id: student._id },
+        body: { githubUrl: 'https://github.com/danilankamo/gradflow' },
+      },
+      subRes,
+      throwNext
+    );
+
+    const appRes = responseRecorder();
+    await submissionController.reviewSubmission(
+      {
+        params: { id: subRes.body.data._id },
+        user: { _id: supervisor._id },
+        body: { action: 'approve', feedback: 'Excellent work' },
+      },
+      appRes,
+      throwNext
+    );
+  }
+
+  // After all 6 milestones are approved, project progress is 100% and status is Final Submission
+  const projectAfterMilestones = db.projects.find((p) => String(p._id) === String(projectId));
+  assert.equal(projectAfterMilestones.progress, 100);
+  assert.equal(projectAfterMilestones.status, 'Final Submission');
+
+  // 5. Attempting to assign supervisor as examiner -> REJECTED (400)
+  const supervisorAsExaminerRes = responseRecorder();
+  await defenseController.createDefense(
+    {
+      body: {
+        projectId,
+        date: '2026-10-25',
+        startTime: '09:00',
+        endTime: '10:30',
+        room: 'Hall A',
+        examinerIds: [supervisor._id],
+      },
+      user: { role: 'coordinator' },
+    },
+    supervisorAsExaminerRes,
+    throwNext
+  );
+  assert.equal(supervisorAsExaminerRes.statusCode, 400);
+  assert.match(supervisorAsExaminerRes.body.message, /supervisor cannot be assigned as an examiner/i);
+
+  // 6. Coordinator schedules defense with valid examiner -> SUCCEEDED (201)
+  const validDefenseRes = responseRecorder();
+  await defenseController.createDefense(
+    {
+      body: {
+        projectId,
+        date: '2026-10-25',
+        startTime: '09:00',
+        endTime: '10:30',
+        room: 'Hall A',
+        examinerIds: [examiner1._id],
+      },
+      user: { role: 'coordinator' },
+    },
+    validDefenseRes,
+    throwNext
+  );
+  assert.equal(validDefenseRes.statusCode, 201);
+  assert.equal(projectAfterMilestones.status, 'Defense Scheduled');
+  assert.equal(db.defenses.length, 1);
+
+  // 7. Conflicting defense: Room Hall A overlap on same date -> REJECTED (409)
+  const anotherProject = {
+    _id: makeId(),
+    title: 'Second Final Project',
+    status: 'Final Submission',
+    students: [makeId()],
+    supervisorId: makeId(),
+    save: async () => {},
+  };
+  db.projects.push(anotherProject);
+
+  const roomConflictRes = responseRecorder();
+  await defenseController.createDefense(
+    {
+      body: {
+        projectId: anotherProject._id,
+        date: '2026-10-25',
+        startTime: '10:00', // Overlaps with 09:00 - 10:30 in Hall A!
+        endTime: '11:30',
+        room: 'Hall A',
+        examinerIds: [examiner2._id],
+      },
+      user: { role: 'coordinator' },
+    },
+    roomConflictRes,
+    throwNext
+  );
+  assert.equal(roomConflictRes.statusCode, 409);
+  assert.equal(roomConflictRes.body.conflictType, 'room');
+  assert.match(roomConflictRes.body.message, /Room "Hall A" is already booked/i);
+
+  // 8. Conflicting defense: Examiner 1 overlap on same date in another room -> REJECTED (409)
+  const examinerConflictRes = responseRecorder();
+  await defenseController.createDefense(
+    {
+      body: {
+        projectId: anotherProject._id,
+        date: '2026-10-25',
+        startTime: '09:30', // Overlaps with Examiner 1's 09:00 - 10:30 defense!
+        endTime: '11:00',
+        room: 'Room 205',
+        examinerIds: [examiner1._id],
+      },
+      user: { role: 'coordinator' },
+    },
+    examinerConflictRes,
+    throwNext
+  );
+  assert.equal(examinerConflictRes.statusCode, 409);
+  assert.equal(examinerConflictRes.body.conflictType, 'examiner');
+
+  // 9. Consecutive non-overlapping slot in Hall A with Examiner 2 -> SUCCEEDED (201)
+  const consecutiveSlotRes = responseRecorder();
+  await defenseController.createDefense(
+    {
+      body: {
+        projectId: anotherProject._id,
+        date: '2026-10-25',
+        startTime: '10:30', // Exactly at 10:30 when slot 1 ends
+        endTime: '12:00',
+        room: 'Hall A',
+        examinerIds: [examiner2._id],
+      },
+      user: { role: 'coordinator' },
+    },
+    consecutiveSlotRes,
+    throwNext
+  );
+  assert.equal(consecutiveSlotRes.statusCode, 201);
+  assert.equal(anotherProject.status, 'Defense Scheduled');
+  assert.equal(db.defenses.length, 2);
+});
+

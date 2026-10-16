@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import SupervisorManagement, { SupervisorWorkspace } from './SupervisorManagement.jsx';
 import { StudentMilestones, SupervisorSubmissions } from './DeliverableWorkflow.jsx';
+import {
+  CoordinatorDefenseScheduler,
+  StudentDefenseCard,
+  ExaminerWorkspace,
+} from './DefenseScheduling.jsx';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -45,21 +50,28 @@ const AUTH_ROLES = [
     label: 'Student',
     sub: 'Proposer/Lead',
     icon: 'school',
-    note: 'Student Candidate mode: submit abstracts, track advisor sign-offs, and upload viva presentation decks.',
+    note: 'Student Candidate mode: submit abstracts, track advisor sign-offs, and view defense viva details.',
   },
   {
     id: 'supervisor',
     label: 'Supervisor',
     sub: 'Advisory/Sign-off',
     icon: 'psychology',
-    note: 'Supervisor / Faculty Advisory mode: review specifications, sign off proposal milestones, and issue mid-eval ratings.',
+    note: 'Supervisor / Faculty Advisory mode: review specifications, manage milestones, evaluate deliverables, and monitor defenses.',
   },
   {
-    id: 'committee',
-    label: 'Committee',
-    sub: 'Panel / Rubric',
+    id: 'coordinator',
+    label: 'Coordinator',
+    sub: 'Department Head',
+    icon: 'admin_panel_settings',
+    note: 'Department Coordinator mode: review proposals, assign supervisors, and schedule oral defense panels with conflict detection.',
+  },
+  {
+    id: 'examiner',
+    label: 'Examiner',
+    sub: 'Viva Panel',
     icon: 'balance',
-    note: 'Committee & Defence Panel mode: schedule oral defence panels, score standard rubrics, and release consensus verdicts.',
+    note: 'Defence Examination Panel mode: inspect assigned graduation projects, attend oral vivas, and record evaluations.',
   },
 ];
 
@@ -136,7 +148,7 @@ function AuthScreen({ authMode, setAuthMode, authForm, setAuthForm, authRole, se
             <Icon name="shield_person" size={14} /> Verified Portal
           </span>
         </div>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {AUTH_ROLES.map((role) => (
             <button
               key={role.id}
@@ -363,6 +375,9 @@ function App() {
   const [selectedProject, setSelectedProject] = useState(null);
   const [milestones, setMilestones] = useState([]);
   const [submissions, setSubmissions] = useState([]);
+  const [defenses, setDefenses] = useState([]);
+  const [schedulableProjects, setSchedulableProjects] = useState([]);
+  const [examiners, setExaminers] = useState([]);
   const [workspaceProjectId, setWorkspaceProjectId] = useState('');
   const [proposal, setProposal] = useState(emptyProposal);
   const [profile, setProfile] = useState({ name: '', department: '', bio: '', skills: '' });
@@ -413,23 +428,41 @@ function App() {
     setError('');
     try {
       if (user.role === 'coordinator') {
-        const [reviewData, dashboardData, supervisorData, assignmentData] = await Promise.all([
+        const [
+          reviewData,
+          dashboardData,
+          supervisorData,
+          assignmentData,
+          defenseData,
+          schedulableData,
+          examinerData,
+        ] = await Promise.all([
           request('/api/projects/coordinator/review', apiOptions()),
           request('/api/projects/coordinator/dashboard', apiOptions()),
           request('/api/users/supervisors', apiOptions()),
           request('/api/projects/coordinator/assignments', apiOptions()),
+          request('/api/defenses', apiOptions()).catch(() => ({ data: [] })),
+          request('/api/defenses/schedulable-projects', apiOptions()).catch(() => ({ data: [] })),
+          request('/api/defenses/examiners', apiOptions()).catch(() => ({ data: [] })),
         ]);
         setProjects(reviewData.data);
         setDashboard(dashboardData.data);
         setSupervisors(supervisorData.data);
         setAssignmentProjects(assignmentData.data);
+        setDefenses(defenseData.data || []);
+        setSchedulableProjects(schedulableData.data || []);
+        setExaminers(examinerData.data || []);
         setSelectedProject((current) => {
           const retained = reviewData.data.find((project) => project._id === current?._id);
           return retained || reviewData.data[0] || null;
         });
       } else if (user.role === 'student') {
-        const result = await request('/api/projects/my', apiOptions());
+        const [result, defenseData] = await Promise.all([
+          request('/api/projects/my', apiOptions()),
+          request('/api/defenses', apiOptions()).catch(() => ({ data: [] })),
+        ]);
         setProjects(result.data);
+        setDefenses(defenseData.data || []);
         const current = result.data[0];
         setProposal(current ? {
           title: current.title || '',
@@ -453,8 +486,15 @@ function App() {
           setSubmissions([]);
         }
       } else if (user.role === 'supervisor') {
-        const result = await request('/api/projects/supervisor/assigned', apiOptions());
+        const [result, defenseData] = await Promise.all([
+          request('/api/projects/supervisor/assigned', apiOptions()),
+          request('/api/defenses', apiOptions()).catch(() => ({ data: [] })),
+        ]);
         setProjects(result.data);
+        setDefenses(defenseData.data || []);
+      } else if (user.role === 'examiner') {
+        const defenseData = await request('/api/defenses', apiOptions()).catch(() => ({ data: [] }));
+        setDefenses(defenseData.data || []);
       }
     } catch (loadError) {
       setError(loadError.message);
@@ -502,16 +542,35 @@ function App() {
     if (!user) return [];
     const shared = [{ key: 'overview', label: 'Overview' }, { key: 'profile', label: 'Profile' }];
     if (user.role === 'student') {
-      return [...shared, { key: 'proposal', label: 'My Proposal' }, { key: 'milestones', label: 'Milestones' }];
+      return [
+        ...shared,
+        { key: 'proposal', label: 'My Proposal' },
+        { key: 'milestones', label: 'Milestones' },
+        { key: 'defense', label: 'Defense Schedule' },
+      ];
     }
     if (user.role === 'coordinator') {
       return [
         ...shared,
         { key: 'review', label: 'Proposal Review' },
         { key: 'supervisors', label: 'Supervisors' },
+        { key: 'defenses', label: 'Defense Scheduling' },
       ];
     }
-    return [...shared, { key: 'workspace', label: 'Workspace' }];
+    if (user.role === 'supervisor') {
+      return [
+        ...shared,
+        { key: 'workspace', label: 'Projects & Milestones' },
+        { key: 'defenses', label: 'Defense Schedules' },
+      ];
+    }
+    if (user.role === 'examiner') {
+      return [
+        ...shared,
+        { key: 'vivas', label: 'Assigned Defenses' },
+      ];
+    }
+    return shared;
   }, [user]);
 
   const handleAuth = async (event) => {
@@ -521,7 +580,7 @@ function App() {
     try {
       const endpoint = authMode === 'login' ? 'login' : 'register';
       const payload = authMode === 'register'
-        ? authForm
+        ? { ...authForm, role: authRole }
         : { email: authForm.email, password: authForm.password };
       const result = await request(`/api/auth/${endpoint}`, {
         method: 'POST',
@@ -753,6 +812,57 @@ function App() {
     }
   };
 
+  const handleScheduleDefense = async (payload) => {
+    setBusy(true);
+    setError('');
+    setMessage('');
+    try {
+      await request('/api/defenses', apiOptions('POST', payload));
+      setMessage('Project defense scheduled successfully.');
+      await loadWorkspace();
+      return true;
+    } catch (schedError) {
+      setError(schedError.message);
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleUpdateDefense = async (defenseId, payload) => {
+    setBusy(true);
+    setError('');
+    setMessage('');
+    try {
+      await request(`/api/defenses/${defenseId}`, apiOptions('PUT', payload));
+      setMessage('Defense schedule updated successfully.');
+      await loadWorkspace();
+      return true;
+    } catch (updateError) {
+      setError(updateError.message);
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleCancelDefense = async (defenseId) => {
+    setBusy(true);
+    setError('');
+    setMessage('');
+    try {
+      await request(`/api/defenses/${defenseId}/cancel`, apiOptions('PATCH'));
+      setMessage('Defense schedule cancelled. Project returned to Final Submission status.');
+      await loadWorkspace();
+      return true;
+    } catch (cancelError) {
+      setError(cancelError.message);
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const handleLogout = async () => {
     try {
       if (token) await request('/api/auth/logout', apiOptions());
@@ -769,6 +879,9 @@ function App() {
       setDashboard(null);
       setMilestones([]);
       setSubmissions([]);
+      setDefenses([]);
+      setSchedulableProjects([]);
+      setExaminers([]);
       setWorkspaceProjectId('');
       setMessage('');
       setError('');
@@ -907,17 +1020,142 @@ function App() {
             />
           )}
 
+          {route === 'defenses' && user.role === 'coordinator' && (
+            <CoordinatorDefenseScheduler
+              defenses={defenses}
+              schedulableProjects={schedulableProjects}
+              examiners={examiners}
+              busy={busy}
+              onSchedule={handleScheduleDefense}
+              onUpdate={handleUpdateDefense}
+              onCancel={handleCancelDefense}
+              onRefresh={loadWorkspace}
+            />
+          )}
+
+          {route === 'defense' && user.role === 'student' && (
+            <section className="subsection space-y-5">
+              <div className="page-heading">
+                <div>
+                  <p className="eyebrow">Candidate Portal</p>
+                  <h2>Oral Defense &amp; Viva Voce</h2>
+                </div>
+                <button
+                  className="button button-quiet"
+                  type="button"
+                  onClick={loadWorkspace}
+                  disabled={busy}
+                >
+                  Refresh
+                </button>
+              </div>
+              <StudentDefenseCard
+                defense={defenses.find((d) => d.status === 'scheduled') || defenses[0]}
+                projectStatus={projectStatus}
+              />
+            </section>
+          )}
+
+          {route === 'defenses' && user.role === 'supervisor' && (
+            <section className="subsection space-y-5">
+              <div className="page-heading">
+                <div>
+                  <p className="eyebrow">Faculty Supervisor</p>
+                  <h2>Supervised Project Defenses</h2>
+                </div>
+                <button
+                  className="button button-quiet"
+                  type="button"
+                  onClick={loadWorkspace}
+                  disabled={busy}
+                >
+                  Refresh
+                </button>
+              </div>
+              {defenses.length === 0 ? (
+                <div className="empty-detail">
+                  <h3>No defense schedules yet</h3>
+                  <p>Defenses scheduled by the coordinator for your assigned projects will appear here.</p>
+                </div>
+              ) : (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {defenses.map((defense) => (
+                    <article
+                      key={defense._id}
+                      className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <span className={`status-badge status-${defense.status}`}>
+                          {defense.status}
+                        </span>
+                        <span className="text-xs font-semibold text-slate-600">
+                          {new Date(defense.date).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <h4 className="text-base font-semibold text-slate-900">
+                        {defense.projectId?.title}
+                      </h4>
+                      <p className="text-xs text-slate-500 mt-1">
+                        Candidate:{' '}
+                        {defense.projectId?.students?.map((s) => s.name).join(', ') || 'N/A'}
+                      </p>
+                      <div className="mt-3 grid grid-cols-2 gap-2 text-xs bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                        <div>
+                          <strong>Time:</strong> {defense.startTime} – {defense.endTime}
+                        </div>
+                        <div>
+                          <strong>Room:</strong> {defense.room}
+                        </div>
+                      </div>
+                      <div className="mt-2 text-xs text-slate-600">
+                        <strong>Panel:</strong>{' '}
+                        {defense.examinerIds?.map((e) => e.name).join(', ') || 'N/A'}
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
+
+          {route === 'vivas' && user.role === 'examiner' && (
+            <ExaminerWorkspace defenses={defenses} busy={busy} onRefresh={loadWorkspace} />
+          )}
+
+          {route === 'overview' && user.role === 'examiner' && (
+            <ExaminerWorkspace defenses={defenses} busy={busy} onRefresh={loadWorkspace} />
+          )}
+
           {route === 'overview' && user.role === 'coordinator' && dashboard && (
             <div className="stats-grid">
               <StatCard label="Total projects" value={dashboard.totalProjects} />
               <StatCard label="Pending proposals" value={dashboard.pendingProposals} accent />
-              <StatCard label="Approved" value={dashboard.projectsByStatus?.Approved || 0} />
-              <StatCard label="Revision requested" value={dashboard.projectsByStatus?.Revision || 0} />
+              <StatCard label="Approved projects" value={dashboard.projectsByStatus?.Approved || 0} />
+              <StatCard
+                label="Defense Scheduled"
+                value={
+                  dashboard.projectsByStatus?.['Defense Scheduled'] ||
+                  defenses.filter((d) => d.status === 'scheduled').length
+                }
+              />
             </div>
           )}
 
           {route === 'overview' && user.role === 'student' && (
-            <div className="info-card"><h3>Proposal status</h3><p>{projectStatus === 'No proposal' ? 'Start by creating your graduation project proposal.' : `Your proposal is ${projectStatus.toLowerCase()}.`}</p></div>
+            <div className="space-y-5">
+              <div className="info-card">
+                <h3>Proposal status</h3>
+                <p>
+                  {projectStatus === 'No proposal'
+                    ? 'Start by creating your graduation project proposal.'
+                    : `Your proposal is ${projectStatus.toLowerCase()}.`}
+                </p>
+              </div>
+              <StudentDefenseCard
+                defense={defenses.find((d) => d.status === 'scheduled') || defenses[0]}
+                projectStatus={projectStatus}
+              />
+            </div>
           )}
 
           {route === 'workspace' && (
