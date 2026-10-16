@@ -57,7 +57,11 @@ exports.getUser = async (req, res, next) => {
 
 exports.getUsers = async (req, res, next) => {
   try {
-    const users = await User.find().select('-passwordHash');
+    const filter = {};
+    if (req.query.role) {
+      filter.role = req.query.role;
+    }
+    const users = await User.find(filter).select('-passwordHash');
     res.status(200).json({ success: true, count: users.length, data: users });
   } catch (err) {
     next(err);

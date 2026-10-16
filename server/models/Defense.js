@@ -5,7 +5,7 @@ const DefenseSchema = new mongoose.Schema(
     projectId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Project',
-      required: true,
+      required: [true, 'Project ID is required'],
     },
     examinerIds: [
       {
@@ -15,17 +15,22 @@ const DefenseSchema = new mongoose.Schema(
     ],
     date: {
       type: Date,
-      required: true,
+      required: [true, 'Defense date is required'],
     },
     startTime: {
       type: String,
+      required: [true, 'Start time is required'],
+      trim: true,
     },
     endTime: {
       type: String,
+      required: [true, 'End time is required'],
+      trim: true,
     },
     room: {
       type: String,
-      required: true,
+      required: [true, 'Room is required'],
+      trim: true,
     },
     status: {
       type: String,
@@ -37,5 +42,8 @@ const DefenseSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+DefenseSchema.index({ date: 1, room: 1 });
+DefenseSchema.index({ projectId: 1, status: 1 });
 
 module.exports = mongoose.model('Defense', DefenseSchema);

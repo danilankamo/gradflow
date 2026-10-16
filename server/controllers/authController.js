@@ -59,11 +59,14 @@ exports.register = async (req, res, next) => {
       });
     }
 
+    const allowedRoles = ['student', 'supervisor', 'coordinator', 'examiner'];
+    const role = allowedRoles.includes(req.body.role) ? req.body.role : 'student';
+
     const user = await User.create({
       name: name.trim(),
       email: normalizedEmail,
       passwordHash: password,
-      role: 'student',
+      role,
       department,
       studentId,
     });
