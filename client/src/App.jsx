@@ -376,6 +376,7 @@ function App() {
   const [milestones, setMilestones] = useState([]);
   const [submissions, setSubmissions] = useState([]);
   const [defenses, setDefenses] = useState([]);
+  const [evaluations, setEvaluations] = useState([]);
   const [schedulableProjects, setSchedulableProjects] = useState([]);
   const [examiners, setExaminers] = useState([]);
   const [workspaceProjectId, setWorkspaceProjectId] = useState('');
@@ -475,15 +476,18 @@ function App() {
           keywords: Array.isArray(current.keywords) ? current.keywords.join(', ') : '',
         } : emptyProposal);
         if (current) {
-          const [milestoneData, submissionData] = await Promise.all([
+          const [milestoneData, submissionData, evalData] = await Promise.all([
             request(`/api/projects/${current._id}/milestones`, apiOptions()),
             request(`/api/projects/${current._id}/submissions`, apiOptions()),
+            request(`/api/projects/${current._id}/evaluations`, apiOptions()).catch(() => ({ data: [] })),
           ]);
           setMilestones(milestoneData.data);
           setSubmissions(submissionData.data);
+          setEvaluations(evalData.data || []);
         } else {
           setMilestones([]);
           setSubmissions([]);
+          setEvaluations([]);
         }
       } else if (user.role === 'supervisor') {
         const [result, defenseData] = await Promise.all([
@@ -863,6 +867,23 @@ function App() {
     }
   };
 
+  const handleSaveEvaluation = async (defenseId, payload) => {
+    setBusy(true);
+    setError('');
+    setMessage('');
+    try {
+      const result = await request(`/api/defenses/${defenseId}/evaluations`, apiOptions('POST', payload));
+      setMessage(result.message || 'Defense evaluation recorded successfully.');
+      await loadWorkspace();
+      return true;
+    } catch (evalError) {
+      setError(evalError.message);
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const handleLogout = async () => {
     try {
       if (token) await request('/api/auth/logout', apiOptions());
@@ -1052,6 +1073,7 @@ function App() {
               <StudentDefenseCard
                 defense={defenses.find((d) => d.status === 'scheduled') || defenses[0]}
                 projectStatus={projectStatus}
+                evaluations={evaluations}
               />
             </section>
           )}
@@ -1119,11 +1141,23 @@ function App() {
           )}
 
           {route === 'vivas' && user.role === 'examiner' && (
-            <ExaminerWorkspace defenses={defenses} busy={busy} onRefresh={loadWorkspace} />
+            <ExaminerWorkspace
+              defenses={defenses}
+              user={user}
+              busy={busy}
+              onRefresh={loadWorkspace}
+              onSaveEvaluation={handleSaveEvaluation}
+            />
           )}
 
           {route === 'overview' && user.role === 'examiner' && (
-            <ExaminerWorkspace defenses={defenses} busy={busy} onRefresh={loadWorkspace} />
+            <ExaminerWorkspace
+              defenses={defenses}
+              user={user}
+              busy={busy}
+              onRefresh={loadWorkspace}
+              onSaveEvaluation={handleSaveEvaluation}
+            />
           )}
 
           {route === 'overview' && user.role === 'coordinator' && dashboard && (

@@ -7,6 +7,10 @@ const EvaluationSchema = new mongoose.Schema(
       ref: 'Project',
       required: true,
     },
+    defenseId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Defense',
+    },
     examinerId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
@@ -28,6 +32,14 @@ const EvaluationSchema = new mongoose.Schema(
     comments: {
       type: String,
     },
+    manuscriptAmendments: {
+      type: String,
+    },
+    verdict: {
+      type: String,
+      enum: ['distinction', 'minor-corrections', 'major-revisions', 'fail', 'Approved', 'Revision', 'Rejected'],
+      default: 'minor-corrections',
+    },
     submittedAt: {
       type: Date,
       default: Date.now,
@@ -37,5 +49,8 @@ const EvaluationSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+EvaluationSchema.index({ defenseId: 1, examinerId: 1 });
+EvaluationSchema.index({ projectId: 1, examinerId: 1 });
 
 module.exports = mongoose.model('Evaluation', EvaluationSchema);

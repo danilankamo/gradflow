@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import ExaminerEvaluationSuite from './ExaminerEvaluationSuite.jsx';
 
 const STANDARD_TIME_SLOTS = [
   { start: '09:00', end: '10:30', label: '09:00 – 10:30' },
@@ -568,7 +569,7 @@ export function CoordinatorDefenseScheduler({
   );
 }
 
-export function StudentDefenseCard({ defense, projectStatus }) {
+export function StudentDefenseCard({ defense, projectStatus, evaluations = [] }) {
   if (!defense) {
     return (
       <div className="info-card">
@@ -592,17 +593,62 @@ export function StudentDefenseCard({ defense, projectStatus }) {
     day: 'numeric',
   });
 
+  const latestEval = evaluations && evaluations.length > 0 ? evaluations[0] : null;
+
   return (
-    <article className="rounded-2xl border-2 border-violet-200 bg-gradient-to-br from-violet-50/50 to-white p-6 shadow-sm">
+    <article className="rounded-2xl border-2 border-violet-200 bg-gradient-to-br from-violet-50/50 to-white p-6 shadow-sm space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-violet-100 pb-4">
         <div>
           <span className="eyebrow text-violet-700">Official Defense Notice</span>
           <h3 className="text-xl font-bold text-slate-900 mt-0.5">Oral Defense &amp; Viva Voce</h3>
         </div>
-        <span className="inline-flex items-center rounded-full bg-violet-600 px-3 py-1 text-xs font-bold text-white shadow-sm">
-          {defense.status.toUpperCase()}
-        </span>
+        <div className="flex items-center gap-2">
+          {latestEval && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-[#F0FDFA] px-3 py-1 text-xs font-bold text-[#0F766E] border border-[#CCFBF1]">
+              <span className="h-2 w-2 rounded-full bg-[#0F766E]" />
+              SCORE: {latestEval.total} / 100
+            </span>
+          )}
+          <span className="inline-flex items-center rounded-full bg-violet-600 px-3 py-1 text-xs font-bold text-white shadow-sm">
+            {defense.status.toUpperCase()}
+          </span>
+        </div>
       </div>
+
+      {latestEval && (
+        <div className="rounded-xl border border-[#0F766E]/30 bg-[#F0FDFA]/60 p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#0F766E]">
+                Official Committee Evaluation
+              </span>
+              <div className="flex items-baseline gap-2 mt-0.5">
+                <span className="text-xl font-extrabold text-slate-900">{latestEval.total} / 100</span>
+                <span className="text-xs font-bold text-[#0F766E]">
+                  {latestEval.verdict ? String(latestEval.verdict).toUpperCase() : 'EVALUATED'}
+                </span>
+              </div>
+            </div>
+            <span className="text-xs text-slate-500 font-medium">
+              Examiner: <strong>{latestEval.examinerId?.name || 'Assigned Examiner'}</strong>
+            </span>
+          </div>
+
+          {latestEval.comments && (
+            <div className="text-xs text-slate-700 bg-white p-3 rounded-lg border border-[#0F766E]/20">
+              <strong className="block text-slate-800 mb-1">Commendations &amp; Remarks:</strong>
+              <p>{latestEval.comments}</p>
+            </div>
+          )}
+
+          {latestEval.manuscriptAmendments && (
+            <div className="text-xs text-amber-800 bg-amber-50 p-3 rounded-lg border border-amber-200">
+              <strong className="block text-amber-900 mb-1">Required Amendments:</strong>
+              <p>{latestEval.manuscriptAmendments}</p>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="mt-4 grid gap-4 sm:grid-cols-3">
         <div className="rounded-xl bg-white p-3.5 border border-slate-200/80 shadow-xs">
@@ -664,7 +710,56 @@ export function StudentDefenseCard({ defense, projectStatus }) {
   );
 }
 
-export function ExaminerWorkspace({ defenses = [], busy = false, onRefresh }) {
+export function ExaminerWorkspace({
+  defenses = [],
+  user,
+  busy = false,
+  onRefresh,
+  onSaveEvaluation,
+}) {
+  const [selectedDefenseForEval, setSelectedDefenseForEval] = useState(null);
+  const [defenseEvaluations, setDefenseEvaluations] = useState({});
+
+  if (selectedDefenseForEval) {
+    return (
+      <ExaminerEvaluationSuite
+        defense={selectedDefenseForEval}
+        user={user}
+        existingEvaluation={defenseEvaluations[selectedDefenseForEval._id]}
+        busy={busy}
+        onSaveEvaluation={async (defenseId, payload) => {
+          const success = await onSaveEvaluation(defenseId, payload);
+          if (success) {
+            setDefenseEvaluations((prev) => ({
+              ...prev,
+              [defenseId]: {
+                defenseId,
+                scores: payload.scores,
+                total:
+                  (Number(payload.scores.problemUnderstanding) || 0) +
+                  (Number(payload.scores.implementation) || 0) +
+                  (Number(payload.scores.functionality) || 0) +
+                  (Number(payload.scores.documentation) || 0) +
+                  (Number(payload.scores.presentation) || 0),
+                comments: payload.comments,
+                manuscriptAmendments: payload.manuscriptAmendments,
+                verdict: payload.verdict,
+              },
+            }));
+            onRefresh?.();
+          }
+          return success;
+        }}
+        onBack={() => setSelectedDefenseForEval(null)}
+      />
+    );
+  }
+
+  const completedCount = defenses.filter(
+    (d) => d.status === 'completed' || d.projectId?.status === 'Evaluated' || defenseEvaluations[d._id]
+  ).length;
+  const pendingCount = Math.max(0, defenses.length - completedCount);
+
   return (
     <section className="subsection space-y-6">
       <div className="page-heading">
@@ -689,11 +784,11 @@ export function ExaminerWorkspace({ defenses = [], busy = false, onRefresh }) {
         </article>
         <article className="stat-card">
           <span>Pending Evaluation</span>
-          <strong>{defenses.filter((d) => d.status === 'scheduled').length}</strong>
+          <strong>{pendingCount}</strong>
         </article>
         <article className="stat-card">
           <span>Completed Vivas</span>
-          <strong>{defenses.filter((d) => d.status === 'completed').length}</strong>
+          <strong>{completedCount}</strong>
         </article>
       </div>
 
@@ -705,6 +800,11 @@ export function ExaminerWorkspace({ defenses = [], busy = false, onRefresh }) {
       ) : (
         <div className="grid gap-5">
           {defenses.map((defense) => {
+            const isEvaluated =
+              defense.status === 'completed' ||
+              defense.projectId?.status === 'Evaluated' ||
+              Boolean(defenseEvaluations[defense._id]);
+
             const formattedDate = new Date(defense.date).toLocaleDateString(undefined, {
               weekday: 'long',
               year: 'numeric',
@@ -724,9 +824,17 @@ export function ExaminerWorkspace({ defenses = [], busy = false, onRefresh }) {
                       {defense.projectId?.title}
                     </h3>
                   </div>
-                  <span className="status-badge status-defense-scheduled">
-                    {defense.status}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    {isEvaluated && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-[#F0FDFA] px-3 py-1 text-xs font-bold text-[#0F766E] border border-[#CCFBF1]">
+                        <span className="h-1.5 w-1.5 rounded-full bg-[#0F766E]" />
+                        Evaluated
+                      </span>
+                    )}
+                    <span className={`status-badge status-${defense.status}`}>
+                      {defense.status}
+                    </span>
+                  </div>
                 </div>
 
                 <div className="grid gap-3 sm:grid-cols-3 rounded-xl bg-slate-50 p-4 border border-slate-200">
@@ -761,13 +869,25 @@ export function ExaminerWorkspace({ defenses = [], busy = false, onRefresh }) {
                   </div>
                 )}
 
-                <div className="flex flex-wrap items-center justify-between border-t border-slate-100 pt-3 text-xs text-slate-500">
+                <div className="flex flex-wrap items-center justify-between border-t border-slate-100 pt-4 text-xs text-slate-500 gap-3">
                   <span>
                     Faculty Supervisor: <strong>{defense.projectId?.supervisorId?.name || 'Assigned'}</strong>
                   </span>
-                  <span className="inline-flex items-center gap-1.5 text-brand-700 font-semibold">
-                    Day 10: Evaluation Rubric Unlocks On Viva Date
-                  </span>
+
+                  <button
+                    type="button"
+                    onClick={() => setSelectedDefenseForEval(defense)}
+                    className={`flex items-center gap-2 rounded-xl px-4 py-2 font-bold transition shadow-xs ${
+                      isEvaluated
+                        ? 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+                        : 'bg-primary-container text-white hover:brightness-110'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-base">
+                      {isEvaluated ? 'visibility' : 'rate_review'}
+                    </span>
+                    <span>{isEvaluated ? 'View / Amend Evaluation' : 'Evaluate Oral Defense'}</span>
+                  </button>
                 </div>
               </article>
             );
