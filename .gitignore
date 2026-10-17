@@ -2,4 +2,5 @@
 **/node_modules/
 server/uploads/
 .vscode/
-opencode.json
+antigravity.json
+stitch_*.html
