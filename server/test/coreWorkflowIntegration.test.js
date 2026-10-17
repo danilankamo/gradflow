@@ -8,6 +8,8 @@ const User = require('../models/User');
 const projectController = require('../controllers/projectController');
 const submissionController = require('../controllers/submissionController');
 const defenseController = require('../controllers/defenseController');
+const evaluationController = require('../controllers/evaluationController');
+const Evaluation = require('../models/Evaluation');
 
 const makeId = (() => {
   let counter = 0;
@@ -97,6 +99,7 @@ const createDatabase = () => {
   const milestones = [];
   const submissions = [];
   const defenses = [];
+  const evaluations = [];
   const users = [];
 
   const attach = (collection) => ({
@@ -147,13 +150,21 @@ const createDatabase = () => {
   Defense.findOne = defenseMethods.findOne;
   Defense.find = defenseMethods.find;
 
+  const evaluationMethods = attach(evaluations);
+  Evaluation.create = evaluationMethods.create;
+  Evaluation.findById = evaluationMethods.findById;
+  Evaluation.findOne = evaluationMethods.findOne;
+  Evaluation.find = evaluationMethods.find;
+  Evaluation.countDocuments = async (filter) =>
+    evaluations.filter((doc) => matchesFilter(doc, filter)).length;
+
   User.findOne = (filter) => makeQuery(async () => users.find((doc) => matchesFilter(doc, filter)) || null);
   User.find = (filter) => makeQuery(async () => (filter ? users.filter((doc) => matchesFilter(doc, filter)) : [...users]));
 
   const Notification = require('../models/Notification');
   Notification.insertMany = async () => [];
 
-  return { projects, milestones, submissions, defenses, users };
+  return { projects, milestones, submissions, defenses, evaluations, users };
 };
 
 test('core lifecycle runs end to end from proposal to supervisor feedback', async () => {
@@ -573,5 +584,54 @@ test('complete lifecycle advances through milestone approvals, final submission,
   assert.equal(consecutiveSlotRes.statusCode, 201);
   assert.equal(anotherProject.status, 'Defense Scheduled');
   assert.equal(db.defenses.length, 2);
+
+  // 10. TC-8: Unassigned Examiner 2 attempts to evaluate Defense 1 -> REJECTED (403)
+  const unassignedEvalRes = responseRecorder();
+  await evaluationController.submitEvaluation(
+    {
+      params: { id: db.defenses[0]._id },
+      body: {
+        scores: {
+          problemUnderstanding: 18,
+          implementation: 23,
+          functionality: 22,
+          documentation: 13,
+          presentation: 14,
+        },
+      },
+      user: { _id: examiner2._id, role: 'examiner' },
+    },
+    unassignedEvalRes,
+    throwNext
+  );
+  assert.equal(unassignedEvalRes.statusCode, 403);
+  assert.match(unassignedEvalRes.body.message, /not authorized to evaluate/i);
+
+  // 11. Assigned Examiner 1 submits structured evaluation -> SUCCEEDED (201)
+  const assignedEvalRes = responseRecorder();
+  await evaluationController.submitEvaluation(
+    {
+      params: { id: db.defenses[0]._id },
+      body: {
+        scores: {
+          problemUnderstanding: 18,
+          implementation: 23,
+          functionality: 22,
+          documentation: 13,
+          presentation: 14,
+        },
+        comments: 'Outstanding empirical demonstration and clear defense.',
+        verdict: 'distinction',
+      },
+      user: { _id: examiner1._id, role: 'examiner' },
+    },
+    assignedEvalRes,
+    throwNext
+  );
+  assert.equal(assignedEvalRes.statusCode, 201);
+  assert.equal(assignedEvalRes.body.data.total, 90);
+  assert.equal(projectAfterMilestones.status, 'Evaluated');
+  assert.equal(db.defenses[0].status, 'completed');
+  assert.equal(db.evaluations.length, 1);
 });
 
