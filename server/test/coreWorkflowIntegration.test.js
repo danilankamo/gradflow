@@ -163,6 +163,7 @@ const createDatabase = () => {
 
   const Notification = require('../models/Notification');
   Notification.insertMany = async () => [];
+  Notification.create = async () => ({});
 
   return { projects, milestones, submissions, defenses, evaluations, users };
 };
@@ -634,4 +635,3 @@ test('complete lifecycle advances through milestone approvals, final submission,
   assert.equal(db.defenses[0].status, 'completed');
   assert.equal(db.evaluations.length, 1);
 });
-

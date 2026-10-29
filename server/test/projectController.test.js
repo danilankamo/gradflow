@@ -2,6 +2,7 @@ const { afterEach, test } = require('node:test');
 const assert = require('node:assert/strict');
 const Project = require('../models/Project');
 const User = require('../models/User');
+const Notification = require('../models/Notification');
 const controller = require('../controllers/projectController');
 
 const originals = {
@@ -9,6 +10,7 @@ const originals = {
   findOneAndUpdate: Project.findOneAndUpdate,
   findById: Project.findById,
   find: Project.find,
+  notificationInsertMany: Notification.insertMany,
 };
 
 afterEach(() => {
@@ -16,6 +18,7 @@ afterEach(() => {
   Project.findOneAndUpdate = originals.findOneAndUpdate;
   Project.findById = originals.findById;
   Project.find = originals.find;
+  Notification.insertMany = originals.notificationInsertMany;
 });
 
 const responseRecorder = () => ({
@@ -32,6 +35,7 @@ const responseRecorder = () => ({
 });
 
 test('assigns an eligible supervisor to an approved, unassigned project', async () => {
+  Notification.insertMany = async () => [];
   const supervisorId = '507f1f77bcf86cd799439011';
   const projectId = '507f1f77bcf86cd799439012';
   let queriedFilter;
@@ -131,6 +135,7 @@ test('rejects stale assignments without overwriting ownership', async () => {
 });
 
 test('reassignment uses the expected current supervisor as an atomic guard', async () => {
+  Notification.insertMany = async () => [];
   const currentSupervisorId = '507f1f77bcf86cd799439013';
   const nextSupervisorId = '507f1f77bcf86cd799439011';
   let query;
@@ -192,6 +197,7 @@ test('returns only the authenticated supervisor’s assigned projects', async ()
 });
 
 test('an assigned approved project immediately appears in the supervisor workspace', async () => {
+  Notification.insertMany = async () => [];
   const supervisorId = '507f1f77bcf86cd799439011';
   const projectId = '507f1f77bcf86cd799439012';
   const project = {

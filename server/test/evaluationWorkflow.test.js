@@ -222,6 +222,55 @@ test('successfully records examiner evaluation, updates project to Evaluated, an
   assert.equal(notificationsCreated[1].userId, SUPERVISOR_ID);
 });
 
+test('does not notify recipients until every assigned examiner has submitted an evaluation', async () => {
+  const fakeProject = {
+    _id: PROJECT_ID,
+    title: 'Precision Sensor Mesh',
+    students: [STUDENT_ID],
+    supervisorId: SUPERVISOR_ID,
+    status: 'Defense Scheduled',
+    save: async () => {},
+  };
+  const fakeDefense = {
+    _id: DEFENSE_ID,
+    status: 'scheduled',
+    examinerIds: [ASSIGNED_EXAMINER_ID, UNASSIGNED_EXAMINER_ID],
+    projectId: fakeProject,
+    save: async () => {},
+  };
+
+  Defense.findById = () => ({
+    populate: () => Promise.resolve(fakeDefense),
+  });
+  Project.findById = () => Promise.resolve(fakeProject);
+  Evaluation.findOne = () => Promise.resolve(null);
+  Evaluation.create = (doc) => Promise.resolve({ ...doc, _id: EVAL_ID });
+  Evaluation.countDocuments = () => Promise.resolve(1);
+  Evaluation.findById = () => ({
+    populate: () => Promise.resolve({ _id: EVAL_ID }),
+  });
+
+  let notificationsCreated = false;
+  Notification.insertMany = async () => {
+    notificationsCreated = true;
+  };
+
+  const res = responseRecorder();
+  await controller.submitEvaluation(
+    {
+      params: { id: DEFENSE_ID },
+      user: { _id: ASSIGNED_EXAMINER_ID, name: 'Dr. Helen Sterling', role: 'examiner' },
+      body: { scores: {} },
+    },
+    res,
+    () => {}
+  );
+
+  assert.equal(res.statusCode, 201);
+  assert.equal(fakeDefense.status, 'scheduled');
+  assert.equal(notificationsCreated, false);
+});
+
 test('getProjectEvaluations blocks an unauthorized student from viewing another project evaluations', async () => {
   Project.findById = () => Promise.resolve({
     _id: PROJECT_ID,

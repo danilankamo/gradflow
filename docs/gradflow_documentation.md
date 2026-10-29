@@ -638,6 +638,8 @@ Under Review
 
 | GET | /api/notifications | Get current user's notifications |
 
+| PATCH | /api/notifications/read-all | Mark all current user's notifications as read |
+
 | PATCH | /api/notifications/:id/read | Mark notification as read |
 
 ## 8.7 Example Request/Response — Proposal Submission
@@ -679,7 +681,7 @@ Submission Page — upload deliverables and add GitHub links.
 
 Defense Page — defense date, time, room, examiner.
 
-Notifications — workflow alerts.
+Notifications — a bell with an unread count and a project-linked list of workflow alerts; users can mark one or all as read.
 
 ## 9.3 Supervisor Screens
 
