@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const Milestone = require('../models/Milestone');
 const Project = require('../models/Project');
 const Submission = require('../models/Submission');
+const Notification = require('../models/Notification');
 const { persistFile } = require('../middleware/upload');
 const {
   validateSubmissionInput,
@@ -105,6 +106,16 @@ exports.createSubmission = async (req, res, next) => {
     await milestone.save();
     await syncProjectProgress(project._id);
 
+    if (project.supervisorId) {
+      await Notification.create({
+        userId: project.supervisorId,
+        type: 'milestone_submitted',
+        title: 'Milestone Deliverable Submitted',
+        message: `Candidate submitted a deliverable for milestone "${milestone.title}" in project "${project.title}".`,
+        relatedProjectId: project._id,
+      });
+    }
+
     res.status(201).json({ success: true, data: submission });
   } catch (err) {
     next(err);
@@ -167,6 +178,21 @@ exports.reviewSubmission = async (req, res, next) => {
     }
 
     await syncProjectProgress(submission.projectId);
+
+    const milestoneTitle = milestone ? milestone.title : 'Milestone';
+    const isApproved = action === 'approve';
+    const notifications = (project.students || []).map((studentId) => ({
+      userId: studentId,
+      type: isApproved ? 'milestone_reviewed' : 'milestone_feedback',
+      title: isApproved ? 'Milestone Deliverable Approved' : 'Milestone Revision Requested',
+      message: isApproved
+        ? `Supervisor approved deliverable for milestone "${milestoneTitle}".`
+        : `Supervisor requested revisions on milestone "${milestoneTitle}". Feedback: ${feedback}`,
+      relatedProjectId: project._id,
+    }));
+    if (notifications.length > 0) {
+      await Notification.insertMany(notifications);
+    }
 
     res.status(200).json({ success: true, data: submission });
   } catch (err) {

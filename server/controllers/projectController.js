@@ -1,5 +1,6 @@
 const Project = require('../models/Project');
 const User = require('../models/User');
+const Notification = require('../models/Notification');
 const mongoose = require('mongoose');
 const { getMilestoneSummary, syncProjectProgress } = require('../utils/projectProgress');
 
@@ -384,6 +385,35 @@ exports.reviewProposal = async (req, res, next) => {
     project.coordinatorComment = typeof comment === 'string' ? comment.trim() : '';
     await project.save();
     await project.populate('students', 'name email department studentId');
+
+    const notifConfigs = {
+      approve: {
+        title: 'Proposal Approved',
+        message: `Coordinator approved proposal "${project.title}".`,
+      },
+      reject: {
+        title: 'Proposal Rejected',
+        message: `Coordinator rejected proposal "${project.title}".${project.coordinatorComment ? ' Reason: ' + project.coordinatorComment : ''}`,
+      },
+      revision: {
+        title: 'Proposal Revision Requested',
+        message: `Coordinator requested revisions on proposal "${project.title}".${project.coordinatorComment ? ' Feedback: ' + project.coordinatorComment : ''}`,
+      },
+    };
+    const config = notifConfigs[action];
+    if (config) {
+      const notifications = (project.students || []).map((student) => ({
+        userId: student._id || student,
+        type: 'proposal_decision',
+        title: config.title,
+        message: config.message,
+        relatedProjectId: project._id,
+      }));
+      if (notifications.length > 0) {
+        await Notification.insertMany(notifications);
+      }
+    }
+
     res.status(200).json({ success: true, data: project });
   } catch (err) {
     next(err);
@@ -493,6 +523,27 @@ exports.assignSupervisor = async (req, res, next) => {
           : 'Only approved, unassigned projects can receive a supervisor',
       });
     }
+    const notifications = [];
+    (project.students || []).forEach((student) => {
+      notifications.push({
+        userId: student._id || student,
+        type: 'supervisor_assigned',
+        title: 'Supervisor Assigned',
+        message: `Coordinator assigned ${supervisor.name} as faculty supervisor for project "${project.title}".`,
+        relatedProjectId: project._id,
+      });
+    });
+    notifications.push({
+      userId: supervisor._id,
+      type: 'supervisor_assigned',
+      title: 'Assigned as Faculty Supervisor',
+      message: `You have been assigned as supervisor for project "${project.title}".`,
+      relatedProjectId: project._id,
+    });
+    if (notifications.length > 0) {
+      await Notification.insertMany(notifications);
+    }
+
     res.status(200).json({ success: true, data: project });
   } catch (err) {
     next(err);

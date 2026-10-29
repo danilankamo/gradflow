@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const Defense = require('../models/Defense');
+const Notification = require('../models/Notification');
 const Project = require('../models/Project');
 const User = require('../models/User');
 const { detectDefenseConflicts, isTimeIntervalValid } = require('../utils/defenseConflict');
@@ -118,46 +119,41 @@ exports.createDefense = async (req, res, next) => {
     project.status = 'Defense Scheduled';
     await project.save();
 
-    try {
-      const Notification = require('../models/Notification');
-      const formattedDate = new Date(date).toLocaleDateString();
-      const notifications = [];
+    const formattedDate = new Date(date).toLocaleDateString();
+    const notifications = [];
 
-      (project.students || []).forEach((studentId) => {
-        notifications.push({
-          userId: studentId,
-          type: 'defense_scheduled',
-          title: 'Defense Scheduled',
-          message: `Your project defense has been scheduled on ${formattedDate} (${startTime} - ${endTime}) in ${room}.`,
-          relatedProjectId: project._id,
-        });
+    (project.students || []).forEach((studentId) => {
+      notifications.push({
+        userId: studentId,
+        type: 'defense_scheduled',
+        title: 'Defense Scheduled',
+        message: `Your project defense has been scheduled on ${formattedDate} (${startTime} - ${endTime}) in ${room}.`,
+        relatedProjectId: project._id,
       });
+    });
 
-      if (project.supervisorId) {
-        notifications.push({
-          userId: project.supervisorId,
-          type: 'defense_scheduled',
-          title: 'Defense Scheduled',
-          message: `Defense for project "${project.title}" has been scheduled on ${formattedDate} in ${room}.`,
-          relatedProjectId: project._id,
-        });
-      }
-
-      uniqueExaminerIds.forEach((examinerId) => {
-        notifications.push({
-          userId: examinerId,
-          type: 'defense_assigned',
-          title: 'Defense Panel Assignment',
-          message: `You have been assigned as an examiner for project "${project.title}" on ${formattedDate} in ${room}.`,
-          relatedProjectId: project._id,
-        });
+    if (project.supervisorId) {
+      notifications.push({
+        userId: project.supervisorId,
+        type: 'defense_scheduled',
+        title: 'Defense Scheduled',
+        message: `Defense for project "${project.title}" has been scheduled on ${formattedDate} in ${room}.`,
+        relatedProjectId: project._id,
       });
+    }
 
-      if (notifications.length > 0) {
-        await Notification.insertMany(notifications);
-      }
-    } catch (notifErr) {
-      // Non-fatal notification failure
+    uniqueExaminerIds.forEach((examinerId) => {
+      notifications.push({
+        userId: examinerId,
+        type: 'defense_assigned',
+        title: 'Defense Panel Assignment',
+        message: `You have been assigned as an examiner for project "${project.title}" on ${formattedDate} in ${room}.`,
+        relatedProjectId: project._id,
+      });
+    });
+
+    if (notifications.length > 0) {
+      await Notification.insertMany(notifications);
     }
 
     const populated = await Defense.findById(defense._id)

@@ -44,6 +44,88 @@ function Icon({ name, size = 18, fill = false, className = '' }) {
   );
 }
 
+function NotificationsPanel({
+  notifications,
+  loading,
+  onMarkRead,
+  onMarkAllRead,
+  onOpenProject,
+}) {
+  const unreadCount = notifications.filter((notification) => !notification.isRead).length;
+
+  return (
+    <section className="subsection">
+      <div className="page-heading">
+        <div>
+          <p className="eyebrow">Updates</p>
+          <h2>Notifications</h2>
+        </div>
+        {unreadCount > 0 && (
+          <button className="button button-quiet" type="button" onClick={onMarkAllRead} disabled={loading}>
+            Mark all as read
+          </button>
+        )}
+      </div>
+
+      {notifications.length === 0 ? (
+        <div className="empty-detail">
+          <h3>{loading ? 'Loading notifications…' : 'You’re all caught up'}</h3>
+          {!loading && <p>Important project updates will appear here.</p>}
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {notifications.map((notification) => {
+            const project = notification.relatedProjectId;
+            const projectId = project && typeof project === 'object' ? project._id : project;
+            const projectTitle = project && typeof project === 'object' ? project.title : '';
+
+            return (
+              <article
+                key={notification._id}
+                className={`rounded-xl border p-4 shadow-sm ${
+                  notification.isRead ? 'border-slate-200 bg-white' : 'border-brand-200 bg-brand-50/60'
+                }`}
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="flex min-w-0 items-start gap-3">
+                    <span className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${notification.isRead ? 'bg-slate-300' : 'bg-brand-600'}`} />
+                    <div className="min-w-0">
+                      <h3 className="text-sm font-semibold text-slate-900">{notification.title}</h3>
+                      <p className="mt-1 text-sm text-slate-600">{notification.message}</p>
+                      {projectId && (
+                        <button
+                          className="mt-2 text-sm font-semibold text-brand-700 hover:text-brand-900"
+                          type="button"
+                          onClick={() => onOpenProject(notification)}
+                        >
+                          {projectTitle ? `Open ${projectTitle}` : 'Open related project'}
+                        </button>
+                      )}
+                      <p className="mt-2 text-xs text-slate-500">
+                        {notification.createdAt ? new Date(notification.createdAt).toLocaleString() : ''}
+                      </p>
+                    </div>
+                  </div>
+                  {!notification.isRead && (
+                    <button
+                      className="button button-quiet"
+                      type="button"
+                      onClick={() => onMarkRead(notification._id)}
+                      disabled={loading}
+                    >
+                      Mark as read
+                    </button>
+                  )}
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
+
 const AUTH_ROLES = [
   {
     id: 'student',
@@ -377,6 +459,8 @@ function App() {
   const [submissions, setSubmissions] = useState([]);
   const [defenses, setDefenses] = useState([]);
   const [evaluations, setEvaluations] = useState([]);
+  const [notifications, setNotifications] = useState([]);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [schedulableProjects, setSchedulableProjects] = useState([]);
   const [examiners, setExaminers] = useState([]);
   const [workspaceProjectId, setWorkspaceProjectId] = useState('');
@@ -409,6 +493,27 @@ function App() {
     }
     return data;
   }, [token]);
+
+  const loadNotifications = useCallback(async () => {
+    if (!user || !token) {
+      setNotifications([]);
+      return;
+    }
+
+    setNotificationsLoading(true);
+    try {
+      const result = await request('/api/notifications', apiOptions());
+      setNotifications(result.data);
+    } catch (loadError) {
+      setError(loadError.message);
+    } finally {
+      setNotificationsLoading(false);
+    }
+  }, [apiOptions, token, user]);
+
+  useEffect(() => {
+    loadNotifications();
+  }, [loadNotifications]);
 
   const loadProjectDeliverables = useCallback(async (projectId) => {
     if (!projectId) {
@@ -500,10 +605,11 @@ function App() {
         const defenseData = await request('/api/defenses', apiOptions()).catch(() => ({ data: [] }));
         setDefenses(defenseData.data || []);
       }
+      await loadNotifications();
     } catch (loadError) {
       setError(loadError.message);
     }
-  }, [apiOptions, token, user]);
+  }, [apiOptions, loadNotifications, token, user]);
 
   useEffect(() => {
     if (!token) {
@@ -544,7 +650,11 @@ function App() {
 
   const routes = useMemo(() => {
     if (!user) return [];
-    const shared = [{ key: 'overview', label: 'Overview' }, { key: 'profile', label: 'Profile' }];
+    const shared = [
+      { key: 'overview', label: 'Overview' },
+      { key: 'profile', label: 'Profile' },
+      { key: 'notifications', label: 'Notifications' },
+    ];
     if (user.role === 'student') {
       return [
         ...shared,
@@ -901,6 +1011,7 @@ function App() {
       setMilestones([]);
       setSubmissions([]);
       setDefenses([]);
+      setNotifications([]);
       setSchedulableProjects([]);
       setExaminers([]);
       setWorkspaceProjectId('');
@@ -911,6 +1022,52 @@ function App() {
 
   const updateProposal = (field, value) =>
     setProposal((current) => ({ ...current, [field]: value }));
+  const unreadNotificationCount = notifications.filter((notification) => !notification.isRead).length;
+  const handleMarkNotificationRead = async (notificationId) => {
+    setNotificationsLoading(true);
+    try {
+      await request(
+        `/api/notifications/${notificationId}/read`,
+        apiOptions('PATCH')
+      );
+      setNotifications((current) => current.map((notification) =>
+        notification._id === notificationId ? { ...notification, isRead: true } : notification
+      ));
+    } catch (readError) {
+      setError(readError.message);
+    } finally {
+      setNotificationsLoading(false);
+    }
+  };
+  const handleMarkAllNotificationsRead = async () => {
+    setNotificationsLoading(true);
+    try {
+      const result = await request('/api/notifications/read-all', apiOptions('PATCH'));
+      setNotifications(result.data);
+    } catch (readError) {
+      setError(readError.message);
+    } finally {
+      setNotificationsLoading(false);
+    }
+  };
+  const handleOpenNotificationProject = (notification) => {
+    const isDefenseUpdate = ['defense_scheduled', 'defense_assigned', 'evaluation_submitted']
+      .includes(notification.type);
+    if (user.role === 'student') {
+      setRoute(isDefenseUpdate ? 'defense' : notification.type.startsWith('milestone_') ? 'milestones' : 'proposal');
+    } else if (user.role === 'coordinator') {
+      setRoute(isDefenseUpdate ? 'defenses' : notification.type === 'supervisor_assigned' ? 'supervisors' : 'review');
+    } else if (user.role === 'supervisor') {
+      setRoute(isDefenseUpdate ? 'defenses' : 'workspace');
+      if (!isDefenseUpdate) {
+        const projectId = notification.relatedProjectId?._id || notification.relatedProjectId;
+        if (projectId) handleSelectProject({ _id: projectId });
+      }
+    } else if (user.role === 'examiner') {
+      setRoute('vivas');
+    }
+    if (!notification.isRead) handleMarkNotificationRead(notification._id);
+  };
   const projectStatus = projects[0]?.status || 'No proposal';
   const canEditProposal = ['Draft', 'Revision'].includes(projectStatus);
 
@@ -924,6 +1081,23 @@ function App() {
           </div>
           <div className="account">
             <span>{user.name}<small>{user.role}</small></span>
+            <button
+              className="button button-quiet relative"
+              type="button"
+              aria-label={`Notifications, ${unreadNotificationCount} unread`}
+              title="Notifications"
+              onClick={() => {
+                setRoute('notifications');
+                loadNotifications();
+              }}
+            >
+              <Icon name="notifications" size={20} />
+              {unreadNotificationCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-bold text-white">
+                  {unreadNotificationCount > 99 ? '99+' : unreadNotificationCount}
+                </span>
+              )}
+            </button>
             <button className="button button-quiet" type="button" onClick={handleLogout}>Sign out</button>
           </div>
         </header>
@@ -972,6 +1146,16 @@ function App() {
                 <div className="action-row full-width"><button className="button button-primary" type="submit" disabled={busy}>Save profile</button></div>
               </form>
             </section>
+          )}
+
+          {route === 'notifications' && (
+            <NotificationsPanel
+              notifications={notifications}
+              loading={notificationsLoading}
+              onMarkRead={handleMarkNotificationRead}
+              onMarkAllRead={handleMarkAllNotificationsRead}
+              onOpenProject={handleOpenNotificationProject}
+            />
           )}
 
           {route === 'proposal' && user.role === 'student' && (

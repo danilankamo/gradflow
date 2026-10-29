@@ -426,6 +426,7 @@ Deliverables accept an optional uploaded file (PDF, Word, PowerPoint, Excel, ZIP
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/notifications` | Get user notifications |
+| PATCH | `/api/notifications/read-all` | Mark all current user's notifications as read |
 | PATCH | `/api/notifications/:id/read` | Mark as read |
 
 ## Database Schema

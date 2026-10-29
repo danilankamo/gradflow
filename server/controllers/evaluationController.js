@@ -127,25 +127,24 @@ exports.submitEvaluation = async (req, res, next) => {
       await project.save();
     }
 
-    // Update defense completion status if all examiners have submitted
+    // Notify project participants once the complete examiner panel has submitted.
     const evaluationCount = await Evaluation.countDocuments({ defenseId: defense._id });
+    const wasCompleted = defense.status === 'completed';
     if (evaluationCount >= defense.examinerIds.length) {
       defense.status = 'completed';
       await defense.save();
     }
 
-    // Generate in-app notifications for candidates and supervisor
-    try {
+    if (!wasCompleted && defense.status === 'completed') {
       const notifications = [];
       const studentIds = project?.students || [];
-      const examinerName = req.user.name || 'An examiner';
 
       studentIds.forEach((studentId) => {
         notifications.push({
           userId: studentId,
           type: 'evaluation_submitted',
-          title: 'Defense Evaluation Recorded',
-          message: `${examinerName} has recorded a defense evaluation for "${project?.title}" with score ${calculatedTotal}/100.`,
+          title: 'Defense Evaluation Complete',
+          message: `The examiner panel has completed its evaluation for "${project?.title}".`,
           relatedProjectId: projectId,
         });
       });
@@ -154,8 +153,8 @@ exports.submitEvaluation = async (req, res, next) => {
         notifications.push({
           userId: project.supervisorId,
           type: 'evaluation_submitted',
-          title: 'Defense Evaluation Recorded',
-          message: `${examinerName} has submitted an oral defense evaluation for project "${project?.title}" with score ${calculatedTotal}/100.`,
+          title: 'Defense Evaluation Complete',
+          message: `The examiner panel has completed its evaluation for "${project?.title}".`,
           relatedProjectId: projectId,
         });
       }
@@ -163,8 +162,6 @@ exports.submitEvaluation = async (req, res, next) => {
       if (notifications.length > 0) {
         await Notification.insertMany(notifications);
       }
-    } catch (notifErr) {
-      // Non-fatal notification failure
     }
 
     const populated = await Evaluation.findById(evaluation._id).populate(
