@@ -3,6 +3,10 @@ const User = require('../models/User');
 const Notification = require('../models/Notification');
 const mongoose = require('mongoose');
 const { getMilestoneSummary, syncProjectProgress } = require('../utils/projectProgress');
+const { evaluateProjectHealth } = require('../utils/projectHealth');
+const Defense = require('../models/Defense');
+const Submission = require('../models/Submission');
+const Evaluation = require('../models/Evaluation');
 
 const proposalStatuses = ['Submitted', 'Under Review', 'Resubmitted'];
 const editableStatuses = ['Draft', 'Revision'];
@@ -162,6 +166,200 @@ exports.getCoordinatorDashboard = async (req, res, next) => {
           0
         ),
         projectsByStatus,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.getRoleDashboard = async (req, res, next) => {
+  try {
+    const role = req.user.role;
+    if (!['student', 'supervisor', 'coordinator', 'examiner'].includes(role)) {
+      return res.status(403).json({ success: false, message: 'Unauthorized role for dashboard access' });
+    }
+
+    if (role === 'examiner') {
+      const startOfToday = new Date();
+      startOfToday.setHours(0, 0, 0, 0);
+      const defenses = await Defense.find({ examinerIds: req.user._id })
+        .populate('projectId', 'title status')
+        .sort({ date: 1, startTime: 1 });
+      const evaluations = defenses.length
+        ? await Evaluation.find({
+          defenseId: { $in: defenses.map((defense) => defense._id) },
+          examinerId: req.user._id,
+        })
+        : [];
+      const evaluatedDefenseIds = new Set(evaluations.map((evaluation) => String(evaluation.defenseId)));
+      const pendingDefenses = defenses.filter(
+        (defense) => defense.status !== 'cancelled' && !evaluatedDefenseIds.has(String(defense._id))
+      );
+      return res.status(200).json({
+        success: true,
+        data: {
+          role,
+          defenses,
+          stats: {
+            assignedDefenses: defenses.filter((defense) => defense.status !== 'cancelled').length,
+            upcomingDefenses: defenses.filter((defense) =>
+              defense.status === 'scheduled' && new Date(defense.date) >= startOfToday
+            ).length,
+            pendingEvaluations: pendingDefenses.length,
+          },
+        },
+      });
+    }
+
+    const projectFilter = role === 'student'
+      ? { students: req.user._id }
+      : role === 'supervisor'
+        ? { supervisorId: req.user._id }
+        : {};
+    let projectQuery = Project.find(projectFilter)
+      .populate('students', 'name department studentId')
+      .sort({ updatedAt: -1 });
+    if (role !== 'coordinator') {
+      projectQuery = projectQuery.populate('supervisorId', 'name department');
+    }
+    const projects = await projectQuery;
+    const projectIds = projects.map((project) => project._id);
+    const Milestone = require('../models/Milestone');
+    const [milestones, submissions] = projectIds.length
+      ? await Promise.all([
+        Milestone.find({ projectId: { $in: projectIds } }).sort({ projectId: 1, order: 1 }),
+        Submission.find({ projectId: { $in: projectIds } })
+          .select('projectId status feedback updatedAt submittedAt')
+          .sort({ updatedAt: -1 }),
+      ])
+      : [[], []];
+
+    const milestonesByProject = new Map();
+    milestones.forEach((milestone) => {
+      const key = String(milestone.projectId);
+      milestonesByProject.set(key, [...(milestonesByProject.get(key) || []), milestone]);
+    });
+    const submissionsByProject = new Map();
+    submissions.forEach((submission) => {
+      const key = String(submission.projectId);
+      submissionsByProject.set(key, [...(submissionsByProject.get(key) || []), submission]);
+    });
+    const enrichedProjects = projects.map((project) => {
+      const projectData = project && typeof project.toObject === 'function' ? project.toObject() : { ...project };
+      const projectMilestones = milestonesByProject.get(String(projectData._id)) || [];
+      const projectSubmissions = submissionsByProject.get(String(projectData._id)) || [];
+      const health = evaluateProjectHealth(projectData, projectMilestones, projectSubmissions);
+      const overdueMilestoneDetails = projectMilestones
+        .filter((milestone) =>
+          milestone.status !== 'approved' && milestone.dueDate && new Date(milestone.dueDate) < new Date()
+        )
+        .map((milestone) => ({ title: milestone.title, dueDate: milestone.dueDate }));
+      return {
+        ...projectData,
+        progress: health.progress,
+        health,
+        overdueMilestoneDetails,
+        milestoneSummary: {
+          total: health.totalMilestones,
+          completed: health.completedMilestones,
+          nextDeadline: health.nextDeadline,
+          overdue: health.overdueMilestones,
+        },
+        latestFeedback: projectSubmissions.find((submission) => submission.feedback)?.feedback || '',
+        pendingReviews: projectSubmissions.filter((submission) => submission.status === 'submitted').length,
+      };
+    });
+
+    const healthCounts = enrichedProjects.reduce((counts, project) => {
+      counts[project.health.status] += 1;
+      return counts;
+    }, { Healthy: 0, 'At Risk': 0, Delayed: 0 });
+
+    if (role === 'coordinator') {
+      const projectsByStatus = enrichedProjects.reduce((counts, project) => {
+        counts[project.status] = (counts[project.status] || 0) + 1;
+        return counts;
+      }, {});
+      const supervisors = await User.find({ role: 'supervisor' }).select('name department');
+      const workloadById = enrichedProjects.reduce((counts, project) => {
+        const supervisorId = project.supervisorId?._id || project.supervisorId;
+        if (supervisorId) {
+          const key = String(supervisorId);
+          counts[key] = (counts[key] || 0) + 1;
+        }
+        return counts;
+      }, {});
+      const startOfToday = new Date();
+      startOfToday.setHours(0, 0, 0, 0);
+      const upcomingDefenses = await Defense.find({
+          status: 'scheduled',
+          date: { $gte: startOfToday },
+      })
+        .populate('projectId', 'title')
+        .populate('examinerIds', 'name')
+        .sort({ date: 1, startTime: 1 })
+        .limit(5);
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          role,
+          projects: enrichedProjects,
+          projectsByStatus,
+          totalProjects: enrichedProjects.length,
+          pendingProposals: proposalStatuses.reduce(
+            (total, status) => total + (projectsByStatus[status] || 0),
+            0
+          ),
+          supervisorWorkload: supervisors.map((supervisor) => ({
+            _id: supervisor._id,
+            name: supervisor.name,
+            department: supervisor.department,
+            projectCount: workloadById[String(supervisor._id)] || 0,
+          })).sort((a, b) => b.projectCount - a.projectCount),
+          upcomingDefenses,
+          healthCounts,
+          healthProjects: enrichedProjects
+            .filter((project) => project.health.status !== 'Healthy')
+            .sort((a, b) => {
+              const priority = { Delayed: 0, 'At Risk': 1 };
+              return priority[a.health.status] - priority[b.health.status];
+            })
+            .slice(0, 5),
+        },
+      });
+    }
+
+    if (role === 'student') {
+      return res.status(200).json({
+        success: true,
+        data: {
+          role,
+          projects: enrichedProjects,
+          stats: {
+            projects: enrichedProjects.length,
+            notifications: 0,
+          },
+        },
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        role,
+        projects: enrichedProjects,
+        stats: {
+          assignedProjects: enrichedProjects.length,
+          pendingReviews: enrichedProjects.reduce((total, project) => total + project.pendingReviews, 0),
+          overdueMilestones: enrichedProjects.reduce(
+            (total, project) => total + project.health.overdueMilestones,
+            0
+          ),
+          atRiskProjects: healthCounts['At Risk'],
+          delayedProjects: healthCounts.Delayed,
+        },
       },
     });
   } catch (err) {

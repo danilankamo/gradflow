@@ -377,6 +377,7 @@ Completed / Archived
 | -------- | ---------- | ------------- |
 | POST | `/api/projects` | Student creates proposal |
 | GET | `/api/projects/my` | Get student's projects |
+| GET | `/api/projects/dashboard` | Get role-specific dashboard metrics and project health |
 | GET | `/api/projects/:id` | Get project details |
 | PATCH | `/api/projects/:id/submit` | Submit proposal |
 | PATCH | `/api/projects/:id/review` | Coordinator approves/rejects |
