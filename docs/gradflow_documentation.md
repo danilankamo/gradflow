@@ -588,6 +588,8 @@ Under Review
 
 | GET | /api/projects/my | Get student's projects |
 
+| GET | /api/projects/archive | List completed projects visible to the current user (coordinator: all; student/supervisor: owned or assigned; examiner: assigned defenses) |
+
 | GET | /api/projects/dashboard | Get role-scoped dashboard metrics, project health, workload, or assigned defenses |
 
 | PUT | /api/projects/:id | Student updates a draft or proposal returned for revision |
@@ -707,7 +709,7 @@ User Management — manage students, supervisors, examiners.
 
 Defense Scheduler — schedule defenses and detect conflicts.
 
-Reports/Archive — view completed projects.
+Reports/Archive — search and filter completed projects; view their students, department, abstract, technologies, supervisor, average examiner score, defense details and available submission links. Coordinators see all completed projects; students and supervisors see only their own or assigned projects; examiners see projects from their assigned completed defenses.
 
 ## 9.5 Examiner Screens
 
