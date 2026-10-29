@@ -33,4 +33,6 @@ const MilestoneSchema = new mongoose.Schema(
   }
 );
 
+MilestoneSchema.index({ projectId: 1, order: 1, dueDate: 1 });
+
 module.exports = mongoose.model('Milestone', MilestoneSchema);

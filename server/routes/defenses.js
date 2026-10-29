@@ -1,42 +1,34 @@
 const express = require('express');
-const Defense = require('../models/Defense');
+const {
+  createDefense,
+  getDefenses,
+  getDefense,
+  updateDefense,
+  cancelDefense,
+  getSchedulableProjects,
+  getAvailableExaminers,
+} = require('../controllers/defenseController');
 const { protect, authorize } = require('../middleware/auth');
 
 const router = express.Router();
 
 router.use(protect);
 
-router.post('/', authorize('coordinator'), async (req, res, next) => {
-  try {
-    const defense = await Defense.create(req.body);
-    res.status(201).json({ success: true, data: defense });
-  } catch (err) {
-    next(err);
-  }
-});
+router.get('/schedulable-projects', authorize('coordinator'), getSchedulableProjects);
+router.get('/examiners', authorize('coordinator'), getAvailableExaminers);
 
-router.get('/', async (req, res, next) => {
-  try {
-    const defenses = await Defense.find().populate('projectId examinerIds');
-    res.status(200).json({ success: true, count: defenses.length, data: defenses });
-  } catch (err) {
-    next(err);
-  }
-});
+const {
+  submitEvaluation,
+  getDefenseEvaluations,
+} = require('../controllers/evaluationController');
 
-router.post('/:id/evaluations', authorize('examiner'), async (req, res, next) => {
-  try {
-    const Evaluation = require('../models/Evaluation');
-    req.body.projectId = req.params.projectId;
-    req.body.examinerId = req.user.id;
-    const scores = req.body.scores || {};
-    const total = (scores.implementation + scores.documentation + scores.presentation + scores.problemUnderstanding + scores.functionality) / 5;
-    req.body.total = total;
-    const evaluation = await Evaluation.create(req.body);
-    res.status(201).json({ success: true, data: evaluation });
-  } catch (err) {
-    next(err);
-  }
-});
+router.post('/', authorize('coordinator'), createDefense);
+router.get('/', getDefenses);
+router.get('/:id', getDefense);
+router.put('/:id', authorize('coordinator'), updateDefense);
+router.patch('/:id/cancel', authorize('coordinator'), cancelDefense);
+
+router.post('/:id/evaluations', authorize('examiner'), submitEvaluation);
+router.get('/:id/evaluations', getDefenseEvaluations);
 
 module.exports = router;

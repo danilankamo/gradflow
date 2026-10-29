@@ -12,6 +12,8 @@ const UserSchema = new mongoose.Schema(
       type: String,
       required: [true, 'Please add an email'],
       unique: true,
+      lowercase: true,
+      trim: true,
       match: [
         /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/,
         'Please add a valid email',
@@ -20,6 +22,8 @@ const UserSchema = new mongoose.Schema(
     passwordHash: {
       type: String,
       required: [true, 'Please add a password'],
+      minlength: [8, 'Password must be at least 8 characters long'],
+      select: false,
     },
     role: {
       type: String,
@@ -41,6 +45,7 @@ const UserSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
+    toJSON: { transform(doc, value) { delete value.passwordHash; return value; } },
   }
 );
 
@@ -48,10 +53,15 @@ UserSchema.methods.matchPassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.passwordHash);
 };
 
-UserSchema.pre('save', async function (next) {
+UserSchema.pre('save', async function () {
   if (!this.isModified('passwordHash')) {
-    next();
+    return;
   }
+
+  if (Buffer.byteLength(this.passwordHash, 'utf8') > 72) {
+    throw Object.assign(new Error('Password must not exceed 72 UTF-8 bytes'), { statusCode: 400 });
+  }
+
   const salt = await bcrypt.genSalt(10);
   this.passwordHash = await bcrypt.hash(this.passwordHash, salt);
 });

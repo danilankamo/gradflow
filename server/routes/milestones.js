@@ -1,7 +1,10 @@
 const express = require('express');
 const Milestone = require('../models/Milestone');
 const Project = require('../models/Project');
+const Defense = require('../models/Defense');
 const { protect, authorize } = require('../middleware/auth');
+const { syncProjectProgress } = require('../utils/projectProgress');
+const { isReadOnlyProject } = require('../utils/projectStatus');
 
 const router = express.Router();
 
@@ -11,8 +14,22 @@ router.post('/projects/:id/milestones', authorize('supervisor'), async (req, res
   try {
     const project = await Project.findById(req.params.id);
     if (!project) return res.status(404).json({ success: false, message: 'Project not found' });
+    if (req.user.role === 'supervisor' && String(project.supervisorId) !== String(req.user._id)) {
+      return res.status(403).json({ success: false, message: 'You can only manage milestones for your assigned project' });
+    }
+    if (isReadOnlyProject(project)) {
+      return res.status(409).json({ success: false, message: 'Completed projects are read-only' });
+    }
     req.body.projectId = req.params.id;
-    const milestone = await Milestone.create(req.body);
+    const milestone = await Milestone.create({
+      projectId: req.params.id,
+      title: req.body.title,
+      description: req.body.description,
+      dueDate: req.body.dueDate,
+      status: 'pending',
+      order: req.body.order ?? (await Milestone.countDocuments({ projectId: req.params.id })) + 1,
+    });
+    await syncProjectProgress(req.params.id);
     res.status(201).json({ success: true, data: milestone });
   } catch (err) {
     next(err);
@@ -21,52 +38,33 @@ router.post('/projects/:id/milestones', authorize('supervisor'), async (req, res
 
 router.get('/projects/:id/milestones', async (req, res, next) => {
   try {
-    const milestones = await Milestone.find({ projectId: req.params.id }).sort('order');
+    let projectFilter;
+    if (req.user.role === 'coordinator') {
+      projectFilter = {};
+    } else if (req.user.role === 'student') {
+      projectFilter = { students: req.user._id };
+    } else if (req.user.role === 'supervisor') {
+      projectFilter = { supervisorId: req.user._id };
+    } else if (req.user.role === 'examiner') {
+      const assignedDefenses = await Defense.find({
+        examinerIds: req.user._id,
+        projectId: req.params.id,
+      }).select('projectId');
+      if (assignedDefenses.length === 0) {
+        return res.status(404).json({ success: false, message: 'Project not found' });
+      }
+      projectFilter = { _id: req.params.id };
+    } else {
+      return res.status(403).json({ success: false, message: 'User role is not authorized to view milestones' });
+    }
+
+    const project = await Project.findOne({
+      _id: req.params.id,
+      ...projectFilter,
+    });
+    if (!project) return res.status(404).json({ success: false, message: 'Project not found' });
+    const milestones = await Milestone.find({ projectId: req.params.id }).sort({ order: 1, dueDate: 1 });
     res.status(200).json({ success: true, count: milestones.length, data: milestones });
-  } catch (err) {
-    next(err);
-  }
-});
-
-router.post('/milestones/:id/submissions', authorize('student'), async (req, res, next) => {
-  try {
-    const milestone = await Milestone.findById(req.params.id);
-    if (!milestone) return res.status(404).json({ success: false, message: 'Milestone not found' });
-    const Submission = require('../models/Submission');
-    req.body.milestoneId = req.params.id;
-    req.body.projectId = milestone.projectId;
-    req.body.studentId = req.user.id;
-    const submission = await Submission.create(req.body);
-    milestone.status = 'submitted';
-    await milestone.save();
-    res.status(201).json({ success: true, data: submission });
-  } catch (err) {
-    next(err);
-  }
-});
-
-router.patch('/submissions/:id/review', authorize('supervisor'), async (req, res, next) => {
-  try {
-    const Submission = require('../models/Submission');
-    const Milestone = require('../models/Milestone');
-    const submission = await Submission.findById(req.params.id);
-    if (!submission) return res.status(404).json({ success: false, message: 'Submission not found' });
-    const { action, feedback } = req.body;
-    if (action === 'approve') {
-      submission.status = 'approved';
-      submission.reviewedAt = Date.now();
-    } else if (action === 'revision') {
-      submission.status = 'revision';
-      submission.reviewedAt = Date.now();
-    }
-    if (feedback) submission.feedback = feedback;
-    await submission.save();
-    const milestone = await Milestone.findById(submission.milestoneId);
-    if (milestone) {
-      milestone.status = submission.status === 'approved' ? 'approved' : 'revision';
-      await milestone.save();
-    }
-    res.status(200).json({ success: true, data: submission });
   } catch (err) {
     next(err);
   }

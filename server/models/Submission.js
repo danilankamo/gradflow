@@ -20,6 +20,15 @@ const SubmissionSchema = new mongoose.Schema(
     fileUrl: {
       type: String,
     },
+    fileName: {
+      type: String,
+    },
+    fileType: {
+      type: String,
+    },
+    fileSize: {
+      type: Number,
+    },
     githubUrl: {
       type: String,
     },
@@ -46,5 +55,8 @@ const SubmissionSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+SubmissionSchema.index({ projectId: 1, updatedAt: -1 });
+SubmissionSchema.index({ milestoneId: 1, submittedAt: -1 });
 
 module.exports = mongoose.model('Submission', SubmissionSchema);

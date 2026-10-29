@@ -588,11 +588,21 @@ Under Review
 
 | GET | /api/projects/my | Get student's projects |
 
+| GET | /api/projects/archive | List completed projects visible to the current user (coordinator: all; student/supervisor: owned or assigned; examiner: assigned defenses) |
+
+| GET | /api/projects/dashboard | Get role-scoped dashboard metrics, project health, workload, or assigned defenses |
+
+| PUT | /api/projects/:id | Student updates a draft or proposal returned for revision |
+
+| GET | /api/projects/coordinator/dashboard | Coordinator: project counts and pending proposal count |
+
+| GET | /api/projects/coordinator/review | Coordinator: list submitted proposals awaiting decision |
+
 | GET | /api/projects/:id | Get project details |
 
 | PATCH | /api/projects/:id/submit | Submit proposal |
 
-| PATCH | /api/projects/:id/review | Coordinator approves/rejects |
+| PATCH | /api/projects/:id/review | Coordinator starts review, approves, rejects, or requests revision with a comment |
 
 | PATCH | /api/projects/:id/supervisor | Coordinator assigns supervisor |
 
@@ -632,6 +642,8 @@ Under Review
 
 | GET | /api/notifications | Get current user's notifications |
 
+| PATCH | /api/notifications/read-all | Mark all current user's notifications as read |
+
 | PATCH | /api/notifications/:id/read | Mark notification as read |
 
 ## 8.7 Example Request/Response — Proposal Submission
@@ -661,7 +673,7 @@ Forgot password (optional if time permits)
 
 ## 9.2 Student Screens
 
-Student Dashboard — project status, progress, deadlines, notifications.
+Student Dashboard — project status and health, milestone progress and next deadline, supervisor, latest feedback, defense schedule and unread notifications.
 
 Profile — academic and contact information.
 
@@ -673,11 +685,11 @@ Submission Page — upload deliverables and add GitHub links.
 
 Defense Page — defense date, time, room, examiner.
 
-Notifications — workflow alerts.
+Notifications — a bell with an unread count and a project-linked list of workflow alerts; users can mark one or all as read.
 
 ## 9.3 Supervisor Screens
 
-Supervisor Dashboard — assigned projects and progress.
+Supervisor Dashboard — assigned projects and health, pending reviews and overdue milestones.
 
 Project Details — milestones, submissions, feedback.
 
@@ -687,7 +699,7 @@ Submission Review — approve or request revision.
 
 ## 9.4 Coordinator Screens
 
-Coordinator Dashboard — project and workflow statistics.
+Coordinator Dashboard — project and workflow statistics, project health, supervisor workload and upcoming defense schedule.
 
 Proposal Queue — review and approve/reject proposals.
 
@@ -697,7 +709,7 @@ User Management — manage students, supervisors, examiners.
 
 Defense Scheduler — schedule defenses and detect conflicts.
 
-Reports/Archive — view completed projects.
+Reports/Archive — search and filter completed projects; view their students, department, abstract, technologies, supervisor, average examiner score, defense details and available submission links. Coordinators see all completed projects; students and supervisors see only their own or assigned projects; examiners see projects from their assigned completed defenses.
 
 ## 9.5 Examiner Screens
 
@@ -706,6 +718,8 @@ Examiner Dashboard — assigned defenses.
 Project Review — project information and final submissions.
 
 Evaluation Form — structured scoring and comments.
+
+Project health is calculated on the server from milestone progress, open overdue milestones and recent activity. Any overdue unfinished milestone is **Delayed**. A project is **At Risk** when it has no recorded activity, has no activity for at least 14 days, has an unfinished milestone due within 7 days, or has less than 50% milestone completion and a milestone due within 14 days. Completed and archived projects remain **Healthy**. Other projects are **Healthy**.
 
 # 10. Security & Threat Model
 

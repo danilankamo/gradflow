@@ -1,50 +1,702 @@
-﻿:root {
-  font-family: Inter, 'Segoe UI', sans-serif;
-  color: #111827;
-  background: #f3f4f6;
-  line-height: 1.5;
-  font-weight: 400;
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
+  --font-display: "Plus Jakarta Sans", "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  --color-primary: #091426;
+  --color-primary-container: #1e293b;
+  --color-on-primary: #ffffff;
+  --color-on-primary-container: #8590a6;
+
+  --color-secondary: #5654a8;
+  --color-secondary-container: #a7a5ff;
+  --color-on-secondary-container: #393689;
+
+  --color-tertiary: #001815;
+  --color-on-tertiary: #ffffff;
+  --color-tertiary-fixed-dim: #6bd8cb;
+  --color-on-tertiary-container: #28a094;
+
+  --color-error: #ba1a1a;
+  --color-error-container: #ffdad6;
+  --color-on-error: #ffffff;
+  --color-on-error-container: #93000a;
+
+  --color-surface: #f8f9ff;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #eff4ff;
+  --color-surface-container: #e5eeff;
+  --color-surface-container-high: #dce9ff;
+  --color-surface-container-highest: #d3e4fe;
+
+  --color-on-surface: #0b1c30;
+  --color-on-surface-variant: #45474c;
+  --color-outline: #75777d;
+  --color-outline-variant: #c5c6cd;
+  --color-background: #f8f9ff;
+
+  --color-brand-50: #eef2ff;
+  --color-brand-100: #e0e7ff;
+  --color-brand-200: #c7d2fe;
+  --color-brand-300: #a5b4fc;
+  --color-brand-400: #818cf8;
+  --color-brand-500: #6366f1;
+  --color-brand-600: #4f46e5;
+  --color-brand-700: #4338ca;
+  --color-brand-800: #3730a3;
+  --color-brand-900: #312e81;
 }
 
-* {
-  box-sizing: border-box;
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply min-h-screen bg-background text-slate-700 antialiased;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-semibold tracking-tight text-slate-900;
+  }
+
+  button:not(:disabled) {
+    @apply cursor-pointer;
+  }
+
+  label {
+    @apply block text-sm font-medium text-slate-700;
+  }
+
+  label > input,
+  label > textarea,
+  label > select {
+    @apply mt-1.5;
+  }
+
+  input:not([type="checkbox"]):not([type="radio"]),
+  textarea,
+  select {
+    @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/30 focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400;
+  }
+
+  textarea {
+    @apply min-h-[90px] resize-y;
+  }
+
+  :where(button, a, [role="button"]):focus-visible {
+    @apply outline-none ring-2 ring-brand-500 ring-offset-2 ring-offset-white;
+  }
 }
 
-html, body, #root {
-  margin: 0;
-  min-height: 100%;
-  min-height: 100vh;
+@layer components {
+  /* ---------- Layout ---------- */
+  .app-shell {
+    @apply mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:py-10;
+  }
+
+  .topbar {
+    @apply mb-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200/70 bg-white/80 px-5 py-4 shadow-sm backdrop-blur;
+  }
+
+  .brand {
+    @apply flex items-center gap-3;
+  }
+
+  .brand-mark {
+    @apply grid h-11 w-11 place-items-center rounded-xl bg-gradient-to-br from-brand-600 to-brand-400 text-lg font-bold text-white shadow-sm;
+  }
+
+  .eyebrow {
+    @apply text-xs font-semibold uppercase tracking-wider text-brand-600;
+  }
+
+  .account {
+    @apply flex items-center gap-3;
+  }
+
+  .account > span {
+    @apply flex flex-col text-right text-sm font-semibold text-slate-800;
+  }
+
+  .account small {
+    @apply text-xs font-normal uppercase tracking-wide text-slate-400;
+  }
+
+  .workspace {
+    @apply space-y-6;
+  }
+
+  .subsection,
+  .student-workspace {
+    @apply space-y-5;
+  }
+
+  .page-heading {
+    @apply flex flex-wrap items-center justify-between gap-4;
+  }
+
+  .page-heading h2 {
+    @apply text-xl sm:text-2xl;
+  }
+
+  .section-heading {
+    @apply mb-3 flex items-center justify-between gap-3;
+  }
+
+  .section-heading h3 {
+    @apply text-base;
+  }
+
+  .section-heading > span {
+    @apply rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600;
+  }
+
+  .detail-heading {
+    @apply flex flex-wrap items-start justify-between gap-3;
+  }
+
+  .detail-heading h3 {
+    @apply text-lg;
+  }
+
+  /* ---------- Buttons ---------- */
+  .button {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .button-primary {
+    @apply bg-brand-600 text-white shadow-sm hover:bg-brand-700 active:bg-brand-800;
+  }
+
+  .button-quiet {
+    @apply border border-slate-300 bg-white text-slate-700 hover:bg-slate-50;
+  }
+
+  .button-success {
+    @apply bg-emerald-600 text-white shadow-sm hover:bg-emerald-700;
+  }
+
+  .button-warning {
+    @apply bg-amber-500 text-white shadow-sm hover:bg-amber-600;
+  }
+
+  .button-danger {
+    @apply bg-rose-600 text-white shadow-sm hover:bg-rose-700;
+  }
+
+  .action-row {
+    @apply flex flex-wrap items-center gap-3;
+  }
+
+  /* ---------- Alerts & notes ---------- */
+  .alert {
+    @apply mb-4 rounded-xl border px-4 py-3 text-sm font-medium;
+  }
+
+  .alert-error {
+    @apply border-rose-200 bg-rose-50 text-rose-700;
+  }
+
+  .alert-success {
+    @apply border-emerald-200 bg-emerald-50 text-emerald-700;
+  }
+
+  .form-note {
+    @apply text-sm text-slate-500;
+  }
+
+  /* ---------- Forms ---------- */
+  .form-grid {
+    @apply grid gap-4;
+  }
+
+  .supervisor-form,
+  .proposal-form {
+    @apply grid gap-4 sm:grid-cols-2;
+  }
+
+  .full-width {
+    @apply sm:col-span-2;
+  }
+
+  .deliverable-form {
+    @apply mt-4 grid gap-4 rounded-xl border border-slate-200 bg-slate-50/60 p-4 sm:grid-cols-2;
+  }
+
+  /* ---------- Navigation ---------- */
+  .route-nav {
+    @apply flex flex-wrap gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-sm;
+  }
+
+  .route-nav button {
+    @apply rounded-lg px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-slate-900;
+  }
+
+  .route-nav button.active {
+    @apply bg-brand-600 text-white shadow-sm hover:bg-brand-600 hover:text-white;
+  }
+
+  /* ---------- Status badges ---------- */
+  .status-badge {
+    @apply inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset ring-slate-200 bg-slate-100 text-slate-600;
+  }
+
+  .status-draft,
+  .status-no-proposal {
+    @apply bg-slate-100 text-slate-600 ring-slate-200;
+  }
+
+  .status-submitted,
+  .status-pending {
+    @apply bg-sky-50 text-sky-700 ring-sky-200;
+  }
+
+  .status-under-review {
+    @apply bg-amber-50 text-amber-700 ring-amber-200;
+  }
+
+  .status-revision,
+  .status-resubmitted {
+    @apply bg-orange-50 text-orange-700 ring-orange-200;
+  }
+
+  .status-approved {
+    @apply bg-emerald-50 text-emerald-700 ring-emerald-200;
+  }
+
+  .status-rejected {
+    @apply bg-rose-50 text-rose-700 ring-rose-200;
+  }
+
+  .status-in-progress,
+  .status-final-submission {
+    @apply bg-brand-50 text-brand-700 ring-brand-200;
+  }
+
+  .status-defense-scheduled {
+    @apply bg-violet-50 text-violet-700 ring-violet-200;
+  }
+
+  .status-evaluated {
+    @apply bg-cyan-50 text-cyan-700 ring-cyan-200;
+  }
+
+  .status-completed {
+    @apply bg-emerald-50 text-emerald-700 ring-emerald-200;
+  }
+
+  .status-archived {
+    @apply bg-slate-100 text-slate-500 ring-slate-200;
+  }
+
+  /* ---------- Cards & stats ---------- */
+  .stat-card {
+    @apply flex flex-col gap-1 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm;
+  }
+
+  .stat-card span {
+    @apply text-sm font-medium text-slate-500;
+  }
+
+  .stat-card strong {
+    @apply text-3xl font-bold text-slate-900;
+  }
+
+  .stat-accent {
+    @apply border-brand-200 bg-brand-50;
+  }
+
+  .stat-accent strong {
+    @apply text-brand-700;
+  }
+
+  .stats-grid {
+    @apply grid gap-4 sm:grid-cols-2 lg:grid-cols-4;
+  }
+
+  .info-card {
+    @apply rounded-2xl border border-slate-200 bg-white p-6 shadow-sm;
+  }
+
+  .info-card h3 {
+    @apply text-lg;
+  }
+
+  .info-card p {
+    @apply mt-1 text-slate-500;
+  }
+
+  .management-card {
+    @apply rounded-2xl border border-slate-200 bg-white p-6 shadow-sm;
+  }
+
+  .management-card h3 {
+    @apply text-lg;
+  }
+
+  /* ---------- Empty states ---------- */
+  .empty-state {
+    @apply rounded-xl border border-dashed border-slate-200 bg-slate-50/60 p-4 text-sm text-slate-500;
+  }
+
+  .empty-detail {
+    @apply rounded-2xl border border-dashed border-slate-200 bg-white p-10 text-center;
+  }
+
+  .empty-detail h3 {
+    @apply text-lg;
+  }
+
+  .empty-detail p {
+    @apply mt-1 text-sm text-slate-500;
+  }
+
+  /* ---------- Role dashboards ---------- */
+  .dashboard-welcome {
+    @apply rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7;
+  }
+
+  .dashboard-welcome h2 {
+    @apply mt-1 text-xl sm:text-2xl;
+  }
+
+  .dashboard-welcome > p:not(.eyebrow) {
+    @apply mt-2 max-w-2xl text-sm text-slate-500;
+  }
+
+  .dashboard-project-progress {
+    @apply mt-6 max-w-3xl rounded-xl bg-slate-50 p-4;
+  }
+
+  .dashboard-card-grid {
+    @apply grid gap-3 sm:grid-cols-2 xl:grid-cols-4;
+  }
+
+  .dashboard-detail-card {
+    @apply flex min-h-24 flex-col items-start justify-center gap-1 rounded-xl border border-slate-200 bg-white p-4 text-left;
+  }
+
+  .dashboard-detail-card > span {
+    @apply text-xs font-semibold uppercase tracking-wide text-slate-500;
+  }
+
+  .dashboard-detail-card > strong {
+    @apply text-sm font-semibold text-slate-900;
+  }
+
+  .dashboard-detail-card > small {
+    @apply text-xs text-slate-500;
+  }
+
+  .dashboard-detail-action {
+    @apply transition hover:border-brand-300 hover:bg-brand-50;
+  }
+
+  .dashboard-feedback {
+    @apply rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900;
+  }
+
+  .dashboard-two-column {
+    @apply grid gap-4 lg:grid-cols-2;
+  }
+
+  .dashboard-project-list,
+  .dashboard-table {
+    @apply divide-y divide-slate-100;
+  }
+
+  .dashboard-project-row,
+  .dashboard-table-row {
+    @apply flex w-full flex-wrap items-center justify-between gap-4 py-4 text-left;
+  }
+
+  .dashboard-project-row {
+    @apply rounded-lg px-3 transition hover:bg-slate-50;
+  }
+
+  .dashboard-project-row > span:first-child,
+  .dashboard-table-row > span:first-child {
+    @apply flex min-w-0 flex-col gap-1;
+  }
+
+  .dashboard-project-row strong,
+  .dashboard-table-row strong {
+    @apply text-sm font-semibold text-slate-900;
+  }
+
+  .dashboard-project-row small,
+  .dashboard-table-row small {
+    @apply text-xs text-slate-500;
+  }
+
+  .dashboard-project-meta {
+    @apply mt-1 text-xs text-slate-600;
+  }
+
+  .dashboard-progress-value,
+  .workload-count {
+    @apply text-xs font-semibold text-brand-700;
+  }
+
+  .health-badge {
+    @apply inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset;
+  }
+
+  .health-healthy {
+    @apply bg-emerald-50 text-emerald-700 ring-emerald-200;
+  }
+
+  .health-at-risk {
+    @apply bg-amber-50 text-amber-700 ring-amber-200;
+  }
+
+  .health-delayed {
+    @apply bg-rose-50 text-rose-700 ring-rose-200;
+  }
+
+  .count-pill {
+    @apply rounded-full bg-surface-container px-3 py-1 text-sm font-semibold text-on-surface-variant;
+  }
+
+  .dashboard-status-pill {
+    @apply inline-flex items-center gap-2 rounded-full bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-600 ring-1 ring-inset ring-slate-200;
+  }
+
+  .dashboard-status-pill strong {
+    @apply font-bold text-slate-900;
+  }
+
+  /* ---------- Review workspace ---------- */
+  .review-layout {
+    @apply grid gap-6 lg:grid-cols-[18rem_minmax(0,1fr)];
+  }
+
+  .proposal-list {
+    @apply flex max-h-[36rem] flex-col gap-2 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-4 shadow-sm;
+  }
+
+  .proposal-list-item {
+    @apply w-full rounded-xl border border-transparent px-4 py-3 text-left transition hover:bg-slate-50;
+  }
+
+  .proposal-list-item strong {
+    @apply block text-sm text-slate-900;
+  }
+
+  .proposal-list-item span {
+    @apply mt-0.5 block text-xs text-slate-500;
+  }
+
+  .proposal-list-item.active {
+    @apply border-brand-200 bg-brand-50;
+  }
+
+  .proposal-detail {
+    @apply rounded-2xl border border-slate-200 bg-white p-6 shadow-sm;
+  }
+
+  .student-byline {
+    @apply mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-500;
+  }
+
+  .student-byline strong {
+    @apply text-slate-800;
+  }
+
+  .proposal-fields {
+    @apply mt-5 grid gap-4 border-t border-slate-100 pt-5 sm:grid-cols-2;
+  }
+
+  .proposal-fields dt {
+    @apply text-xs font-semibold uppercase tracking-wide text-slate-400;
+  }
+
+  .proposal-fields dd {
+    @apply mt-1 text-sm text-slate-700;
+  }
+
+  .feedback-box {
+    @apply rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm;
+  }
+
+  .feedback-box strong {
+    @apply block text-amber-800;
+  }
+
+  .feedback-box p {
+    @apply mt-1 text-amber-700;
+  }
+
+  .feedback-box small {
+    @apply mt-1 block text-amber-600;
+  }
+
+  .review-controls {
+    @apply mt-5 space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4;
+  }
+
+  /* ---------- Supervisors ---------- */
+  .supervisor-layout {
+    @apply grid gap-6 lg:grid-cols-2;
+  }
+
+  .supervisor-section-heading {
+    @apply mb-4;
+  }
+
+  .supervisor-list {
+    @apply flex flex-col gap-3;
+  }
+
+  .supervisor-card {
+    @apply flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50/60 p-4;
+  }
+
+  .supervisor-card strong {
+    @apply block text-sm text-slate-900;
+  }
+
+  .supervisor-card span {
+    @apply block text-xs text-slate-500;
+  }
+
+  .supervisor-card small {
+    @apply mt-1 block text-xs font-medium text-brand-600;
+  }
+
+  .assignment-card {
+    @apply mt-6;
+  }
+
+  .assignment-list {
+    @apply flex flex-col gap-3;
+  }
+
+  .assignment-item {
+    @apply flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-200 p-4;
+  }
+
+  .assignment-item strong {
+    @apply block text-sm text-slate-900;
+  }
+
+  .assignment-item span {
+    @apply block text-xs text-slate-500;
+  }
+
+  .assignment-controls {
+    @apply flex flex-wrap items-center gap-2;
+  }
+
+  .assignment-controls label > select {
+    @apply mt-0 w-auto min-w-[14rem];
+  }
+
+  .assigned-project-list {
+    @apply grid gap-4 sm:grid-cols-2;
+  }
+
+  .assigned-project-card {
+    @apply flex w-full flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:border-brand-300 hover:shadow-md;
+  }
+
+  .assigned-project-card p {
+    @apply text-sm text-slate-600;
+  }
+
+  .assigned-project-card.active {
+    @apply border-brand-400 ring-2 ring-brand-500/20;
+  }
+
+  /* ---------- Deliverables ---------- */
+  .milestone-list {
+    @apply grid gap-5;
+  }
+
+  .milestone-card {
+    @apply rounded-2xl border border-slate-200 bg-white p-6 shadow-sm;
+  }
+
+  .submission-list {
+    @apply flex flex-col gap-4;
+  }
+
+  .submission-card {
+    @apply rounded-2xl border border-slate-200 p-5;
+  }
+
+  .submission-card h4 {
+    @apply text-base;
+  }
+
+  .submission-summary {
+    @apply mt-4 rounded-xl border border-slate-200 bg-slate-50/60 p-4;
+  }
+
+  .submission-summary-head {
+    @apply mb-2 flex flex-wrap items-center justify-between gap-2;
+  }
+
+  .submission-links {
+    @apply flex flex-wrap gap-3 text-sm font-medium;
+  }
+
+  .submission-links a {
+    @apply text-brand-600 hover:text-brand-700 hover:underline;
+  }
+
+  /* ---------- Utilities ---------- */
+  .visually-hidden {
+    @apply sr-only;
+  }
 }
 
-body {
-  display: grid;
-  place-items: center;
-  background: linear-gradient(135deg, #eef2ff 0%, #f9fafb 100%);
+/* Keep long academic titles, URLs, and native form controls within narrow cards. */
+.app-shell :where(section, article, form, label, .grid > *, .flex > div, .page-content, .brand, .account > span) {
+  min-width: 0;
 }
-
-.app-shell {
-  max-width: 720px;
-  width: min(90vw, 720px);
-  padding: 3rem 2.5rem;
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
-  border-radius: 16px;
-  box-shadow: 0 10px 30px rgba(17, 24, 39, 0.08);
-  text-align: center;
+.material-symbols-outlined {
+  display: inline-block;
+  width: 1em;
+  max-width: 1em;
+  flex-shrink: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  vertical-align: middle;
 }
-
-h1 {
-  margin: 0 0 1rem;
-  font-size: clamp(2.2rem, 4vw, 3.5rem);
-  line-height: 1.1;
+.app-shell :where(h1, h2, h3, h4, p, dd, strong, a, small, .alert) {
+  overflow-wrap: anywhere;
 }
-
-p {
-  margin: 0.75rem 0;
-  font-size: 1.05rem;
-  color: #374151;
+.page-content { display: grid; gap: 1.5rem; }
+.page-content[hidden] { display: none; }
+.button, .route-nav button { min-height: 44px; }
+.breadcrumbs { display: flex; flex-wrap: wrap; gap: .65rem; font-size: .875rem; color: #475569; }
+.breadcrumbs button { color: #4338ca; text-decoration: underline; text-underline-offset: 3px; }
+.loading-state { padding: 2rem; border: 1px solid #e2e8f0; border-radius: 1rem; background: white; text-align: center; color: #475569; }
+.loading-state::before { content: ''; display: inline-block; width: 1rem; height: 1rem; margin-right: .75rem; border: 2px solid #c7d2fe; border-top-color: #4f46e5; border-radius: 50%; animation: loading-spin .8s linear infinite; }
+.skip-link { position: fixed; top: .5rem; left: .5rem; z-index: 100; transform: translateY(-200%); padding: .75rem; background: white; border: 2px solid #4f46e5; border-radius: .5rem; }
+.skip-link:focus { transform: translateY(0); }
+@keyframes loading-spin { to { transform: rotate(360deg); } }
+@media (max-width: 639px) {
+  .app-shell { padding: 1rem .75rem; }
+  .topbar { padding: 1rem; }
+  .brand h1 { font-size: .95rem; }
+  .account { width: 100%; flex-wrap: wrap; }
+  .account > span { text-align: left; flex: 1; }
+  .route-nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .route-nav button { padding: .5rem; white-space: normal; }
+  .info-card, .management-card, .proposal-detail, .milestone-card, .submission-card { padding: 1rem; }
+  .empty-detail { padding: 1.5rem 1rem; }
+  .section-heading { flex-wrap: wrap; }
+  .assignment-controls, .assignment-controls label { width: 100%; }
+  .assignment-controls label > select { min-width: 0; width: 100%; }
+  input:not([type="checkbox"]):not([type="radio"]), textarea, select { font-size: 16px; max-width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
 }

@@ -9,17 +9,22 @@ const ProjectSchema = new mongoose.Schema(
     },
     abstract: {
       type: String,
+      trim: true,
     },
     problemStatement: {
       type: String,
+      trim: true,
     },
     objectives: [String],
     methodology: {
       type: String,
+      trim: true,
     },
     technologies: [String],
+    keywords: [String],
     category: {
       type: String,
+      trim: true,
     },
     students: [
       {
@@ -58,11 +63,19 @@ const ProjectSchema = new mongoose.Schema(
     },
     coordinatorComment: {
       type: String,
+      trim: true,
+    },
+    submittedAt: {
+      type: Date,
     },
   },
   {
     timestamps: true,
   }
 );
+
+ProjectSchema.index({ students: 1, updatedAt: -1 });
+ProjectSchema.index({ supervisorId: 1, updatedAt: -1 });
+ProjectSchema.index({ status: 1, updatedAt: -1 });
 
 module.exports = mongoose.model('Project', ProjectSchema);
