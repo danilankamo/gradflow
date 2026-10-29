@@ -179,7 +179,7 @@ export function CoordinatorDefenseScheduler({
         </article>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_1.3fr]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]">
         {/* Scheduling Form */}
         <section className="management-card flex flex-col gap-4">
           <div className="section-heading border-b border-slate-100 pb-3">
@@ -246,7 +246,7 @@ export function CoordinatorDefenseScheduler({
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <label>
                 Defense Date
                 <input
@@ -286,7 +286,7 @@ export function CoordinatorDefenseScheduler({
               ))}
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <label>
                 Start Time
                 <input

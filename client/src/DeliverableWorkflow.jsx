@@ -41,11 +41,22 @@ function DeliverableForm({ milestone, busy, onSubmit }) {
   const [file, setFile] = useState(null);
   const [githubUrl, setGithubUrl] = useState('');
   const [description, setDescription] = useState('');
+  const [formError, setFormError] = useState('');
 
   const isRevision = milestone.status === 'revision';
 
   const submit = async (event) => {
     event.preventDefault();
+    setFormError('');
+    if (!file && !githubUrl.trim()) { setFormError('Choose a deliverable file or enter a GitHub repository URL.'); return; }
+    if (file && file.size > 10 * 1024 * 1024) { setFormError('The file must be 10 MB or smaller.'); return; }
+    if (file && !/\.(pdf|docx?|pptx?|xlsx?|zip|txt|png|jpe?g)$/i.test(file.name)) { setFormError('Choose a PDF, Office document, ZIP, text file or supported image.'); return; }
+    if (githubUrl.trim()) {
+      try {
+        const url = new URL(githubUrl);
+        if (!['https:', 'http:'].includes(url.protocol) || !(url.hostname === 'github.com' || url.hostname.endsWith('.github.com'))) throw new Error();
+      } catch { setFormError('Enter a valid URL hosted on github.com.'); return; }
+    }
     const saved = await onSubmit(milestone._id, { file, githubUrl, description });
     if (saved) {
       setFile(null);
@@ -57,10 +68,12 @@ function DeliverableForm({ milestone, busy, onSubmit }) {
 
   return (
     <form className="deliverable-form" onSubmit={submit}>
+      {formError && <p className="alert alert-error full-width" role="alert">{formError}</p>}
       <label>
         Deliverable file (PDF, Office, ZIP, text or image · max 10 MB)
         <input
           type="file"
+          disabled={busy}
           accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip,.txt,.png,.jpg,.jpeg"
           onChange={(event) => setFile(event.target.files?.[0] || null)}
         />
@@ -69,6 +82,7 @@ function DeliverableForm({ milestone, busy, onSubmit }) {
         GitHub URL (optional)
         <input
           type="url"
+          disabled={busy}
           placeholder="https://github.com/username/repository"
           value={githubUrl}
           onChange={(event) => setGithubUrl(event.target.value)}
@@ -78,6 +92,7 @@ function DeliverableForm({ milestone, busy, onSubmit }) {
         Description (optional)
         <textarea
           rows="2"
+          disabled={busy}
           value={description}
           onChange={(event) => setDescription(event.target.value)}
           placeholder="Summarize what you are submitting"

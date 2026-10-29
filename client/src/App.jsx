@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import SupervisorManagement, { SupervisorWorkspace } from './SupervisorManagement.jsx';
 import { StudentMilestones, SupervisorSubmissions } from './DeliverableWorkflow.jsx';
 import ProjectArchive from './ProjectArchive.jsx';
@@ -8,7 +8,7 @@ import {
   ExaminerWorkspace,
 } from './DefenseScheduling.jsx';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+import { request } from './api.js';
 
 const emptyProposal = {
   title: '',
@@ -21,17 +21,6 @@ const emptyProposal = {
   keywords: '',
 };
 
-async function request(path, options = {}) {
-  const response = await fetch(`${API_URL}${path}`, {
-    credentials: 'include',
-    ...options,
-  });
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data.message || data.error || 'The request could not be completed');
-  }
-  return data;
-}
 
 function Icon({ name, size = 18, fill = false, className = '' }) {
   return (
@@ -450,7 +439,7 @@ function App() {
   const [authForm, setAuthForm] = useState({ name: '', email: '', password: '', department: '', studentId: '' });
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(() => localStorage.getItem('gradflow-token') || '');
-  const [route, setRoute] = useState('overview');
+  const [route, setRoute] = useState(() => window.location.hash.slice(1) || 'overview');
   const [projects, setProjects] = useState([]);
   const [supervisors, setSupervisors] = useState([]);
   const [assignmentProjects, setAssignmentProjects] = useState([]);
@@ -474,6 +463,14 @@ function App() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [sessionLoading, setSessionLoading] = useState(Boolean(token));
+  const [workspaceLoading, setWorkspaceLoading] = useState(true);
+  const [workspaceError, setWorkspaceError] = useState('');
+  const [archiveError, setArchiveError] = useState('');
+  const [archiveRetry, setArchiveRetry] = useState(0);
+  const [deliverablesLoading, setDeliverablesLoading] = useState(false);
+  const [deliverablesError, setDeliverablesError] = useState('');
+  const deliverableRequest = useRef(0);
 
   const apiOptions = useCallback((method = 'GET', body) => ({
     method,
@@ -485,17 +482,11 @@ function App() {
   }), [token]);
 
   const requestMultipart = useCallback(async (path, formData) => {
-    const response = await fetch(`${API_URL}${path}`, {
+    return request(path, {
       method: 'POST',
-      credentials: 'include',
       headers: token ? { Authorization: `Bearer ${token}` } : {},
       body: formData,
     });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      throw new Error(data.message || data.error || 'The request could not be completed');
-    }
-    return data;
   }, [token]);
 
   const loadNotifications = useCallback(async () => {
@@ -515,27 +506,37 @@ function App() {
     }
   }, [apiOptions, token, user]);
 
-  useEffect(() => {
-    loadNotifications();
-  }, [loadNotifications]);
-
   const loadProjectDeliverables = useCallback(async (projectId) => {
     if (!projectId) {
       setMilestones([]);
       setSubmissions([]);
       return;
     }
-    const [milestoneData, submissionData] = await Promise.all([
-      request(`/api/projects/${projectId}/milestones`, apiOptions()),
-      request(`/api/projects/${projectId}/submissions`, apiOptions()),
-    ]);
-    setMilestones(milestoneData.data);
-    setSubmissions(submissionData.data);
+    const requestId = ++deliverableRequest.current;
+    setDeliverablesLoading(true);
+    setDeliverablesError('');
+    setMilestones([]);
+    setSubmissions([]);
+    try {
+      const [milestoneData, submissionData] = await Promise.all([
+        request(`/api/projects/${projectId}/milestones`, apiOptions()),
+        request(`/api/projects/${projectId}/submissions`, apiOptions()),
+      ]);
+      if (requestId !== deliverableRequest.current) return;
+      setMilestones(milestoneData.data);
+      setSubmissions(submissionData.data);
+    } catch (loadError) {
+      if (requestId === deliverableRequest.current) setDeliverablesError(loadError.message);
+    } finally {
+      if (requestId === deliverableRequest.current) setDeliverablesLoading(false);
+    }
+
   }, [apiOptions]);
 
   const loadWorkspace = useCallback(async () => {
     if (!user || !token) return;
-    setError('');
+    setWorkspaceLoading(true);
+    setWorkspaceError('');
     try {
       if (user.role === 'coordinator') {
         const [
@@ -551,9 +552,9 @@ function App() {
           request('/api/projects/dashboard', apiOptions()),
           request('/api/users/supervisors', apiOptions()),
           request('/api/projects/coordinator/assignments', apiOptions()),
-          request('/api/defenses', apiOptions()).catch(() => ({ data: [] })),
-          request('/api/defenses/schedulable-projects', apiOptions()).catch(() => ({ data: [] })),
-          request('/api/defenses/examiners', apiOptions()).catch(() => ({ data: [] })),
+          request('/api/defenses', apiOptions()),
+          request('/api/defenses/schedulable-projects', apiOptions()),
+          request('/api/defenses/examiners', apiOptions()),
         ]);
         setProjects(reviewData.data);
         setDashboard(dashboardData.data);
@@ -571,7 +572,7 @@ function App() {
         const [result, dashboardData, defenseData] = await Promise.all([
           request('/api/projects/my', apiOptions()),
           request('/api/projects/dashboard', apiOptions()),
-          request('/api/defenses', apiOptions()).catch(() => ({ data: [] })),
+          request('/api/defenses', apiOptions()),
         ]);
         setProjects(result.data);
         setRoleDashboard(dashboardData.data);
@@ -591,7 +592,7 @@ function App() {
           const [milestoneData, submissionData, evalData] = await Promise.all([
             request(`/api/projects/${current._id}/milestones`, apiOptions()),
             request(`/api/projects/${current._id}/submissions`, apiOptions()),
-            request(`/api/projects/${current._id}/evaluations`, apiOptions()).catch(() => ({ data: [] })),
+            request(`/api/projects/${current._id}/evaluations`, apiOptions()),
           ]);
           setMilestones(milestoneData.data);
           setSubmissions(submissionData.data);
@@ -604,7 +605,7 @@ function App() {
       } else if (user.role === 'supervisor') {
         const [dashboardData, defenseData] = await Promise.all([
           request('/api/projects/dashboard', apiOptions()),
-          request('/api/defenses', apiOptions()).catch(() => ({ data: [] })),
+          request('/api/defenses', apiOptions()),
         ]);
         setRoleDashboard(dashboardData.data);
         setProjects(dashboardData.data.projects || []);
@@ -612,25 +613,29 @@ function App() {
       } else if (user.role === 'examiner') {
         const [dashboardData, defenseData] = await Promise.all([
           request('/api/projects/dashboard', apiOptions()),
-          request('/api/defenses', apiOptions()).catch(() => ({ data: [] })),
+          request('/api/defenses', apiOptions()),
         ]);
         setRoleDashboard(dashboardData.data);
         setDefenses(defenseData.data || []);
       }
       await loadNotifications();
     } catch (loadError) {
-      setError(loadError.message);
+      setWorkspaceError(loadError.message);
+    } finally {
+      setWorkspaceLoading(false);
     }
   }, [apiOptions, loadNotifications, token, user]);
 
   useEffect(() => {
     if (!token) {
+      setSessionLoading(false);
       setUser(null);
       localStorage.removeItem('gradflow-token');
       return undefined;
     }
 
     localStorage.setItem('gradflow-token', token);
+    setSessionLoading(true);
     let active = true;
     request('/api/auth/me', apiOptions())
       .then((result) => {
@@ -644,12 +649,13 @@ function App() {
           });
         }
       })
-      .catch(() => {
+      .catch((sessionError) => {
         if (active) {
-          setToken('');
-          setUser(null);
+          setError(sessionError.message);
+          if (sessionError.status === 401) { setToken(''); setUser(null); }
         }
-      });
+      })
+      .finally(() => { if (active) setSessionLoading(false); });
 
     return () => {
       active = false;
@@ -664,13 +670,13 @@ function App() {
     if (!user || route !== 'archive') return undefined;
     let active = true;
     setArchiveLoading(true);
-    setError('');
+    setArchiveError('');
     request('/api/projects/archive', apiOptions())
       .then((result) => {
         if (active) setArchiveProjects(result.data);
       })
       .catch((archiveError) => {
-        if (active) setError(archiveError.message);
+        if (active) setArchiveError(archiveError.message);
       })
       .finally(() => {
         if (active) setArchiveLoading(false);
@@ -678,7 +684,7 @@ function App() {
     return () => {
       active = false;
     };
-  }, [apiOptions, route, user]);
+  }, [apiOptions, archiveRetry, route, user]);
 
   const routes = useMemo(() => {
     if (!user) return [];
@@ -720,8 +726,25 @@ function App() {
     return shared;
   }, [user]);
 
+  useEffect(() => {
+    const onHashChange = () => setRoute(window.location.hash.slice(1) || 'overview');
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    if (!routes.some(item => item.key === route)) { setRoute('overview'); return; }
+    if (window.location.hash.slice(1) !== route) window.location.hash = route;
+    document.title = `${routes.find(item => item.key === route)?.label || 'Workspace'} | GradFlow`;
+    document.getElementById('page-content')?.focus({ preventScroll: true });
+  }, [route, routes, user]);
+
+  useEffect(() => { setMessage(''); }, [route]);
+
   const handleAuth = async (event) => {
     event.preventDefault();
+    if (new TextEncoder().encode(authForm.password).length > 72) { setError('Password must not exceed 72 UTF-8 bytes.'); return; }
     setBusy(true);
     setError('');
     try {
@@ -771,20 +794,25 @@ function App() {
     }
   };
 
+  const proposalBody = () => {
+    const list = (value, separator = ',') =>
+      value.split(separator).map((item) => item.trim()).filter(Boolean);
+    return {
+      ...proposal,
+      objectives: list(proposal.objectives, '\n'),
+      technologies: list(proposal.technologies),
+      keywords: list(proposal.keywords),
+    };
+  };
+
   const handleSaveProposal = async (event) => {
     event.preventDefault();
     setBusy(true);
     setError('');
     setMessage('');
     const current = projects[0];
-    const list = (value, separator = ',') =>
-      value.split(separator).map((item) => item.trim()).filter(Boolean);
-    const body = {
-      ...proposal,
-      objectives: list(proposal.objectives, '\n'),
-      technologies: list(proposal.technologies),
-      keywords: list(proposal.keywords),
-    };
+    const body = proposalBody();
+    if (!body.title.trim()) { setError('Enter a project title before saving your draft.'); setBusy(false); return; }
     try {
       const result = await request(
         current ? `/api/projects/${current._id}` : '/api/projects',
@@ -802,6 +830,8 @@ function App() {
   };
 
   const handleSubmitProposal = async () => {
+    const form = document.getElementById('proposal-form');
+    if (form && !form.reportValidity()) return;
     const current = projects[0];
     if (!current) {
       setError('Save the proposal draft before submitting it.');
@@ -811,6 +841,7 @@ function App() {
     setError('');
     setMessage('');
     try {
+      await request(`/api/projects/${current._id}`, apiOptions('PUT', proposalBody()));
       await request(`/api/projects/${current._id}/submit`, apiOptions('PATCH'));
       setMessage('Proposal submitted for coordinator review.');
       await loadWorkspace();
@@ -1030,30 +1061,33 @@ function App() {
   const handleLogout = async () => {
     try {
       if (token) await request('/api/auth/logout', apiOptions());
-    } catch (logoutError) {
-      console.error('Logout error:', logoutError);
-    } finally {
-      setToken('');
-      setUser(null);
-      setRoute('overview');
-      setProjects([]);
-      setSupervisors([]);
-      setAssignmentProjects([]);
-      setSelectedProject(null);
-      setDashboard(null);
-      setRoleDashboard(null);
-      setMilestones([]);
-      setSubmissions([]);
-      setDefenses([]);
-      setNotifications([]);
-      setArchiveProjects([]);
-      setArchiveLoading(false);
-      setSchedulableProjects([]);
-      setExaminers([]);
-      setWorkspaceProjectId('');
-      setMessage('');
-      setError('');
+    } catch {
+      setError('Sign out could not be completed. Check your connection and try again.');
+      return;
     }
+    deliverableRequest.current++;
+    setDeliverablesLoading(false);
+    setDeliverablesError('');
+    setToken('');
+    setUser(null);
+    setRoute('overview');
+    setProjects([]);
+    setSupervisors([]);
+    setAssignmentProjects([]);
+    setSelectedProject(null);
+    setDashboard(null);
+    setRoleDashboard(null);
+    setMilestones([]);
+    setSubmissions([]);
+    setDefenses([]);
+    setNotifications([]);
+    setArchiveProjects([]);
+    setArchiveLoading(false);
+    setSchedulableProjects([]);
+    setExaminers([]);
+    setWorkspaceProjectId('');
+    setMessage('');
+    setError('');
   };
 
   const updateProposal = (field, value) =>
@@ -1105,10 +1139,11 @@ function App() {
     if (!notification.isRead) handleMarkNotificationRead(notification._id);
   };
   const projectStatus = projects[0]?.status || 'No proposal';
-  const canEditProposal = ['Draft', 'Revision'].includes(projectStatus);
+  const canEditProposal = ['No proposal', 'Draft', 'Revision'].includes(projectStatus);
 
   return (
     <main className="app-shell">
+      {user && <a className="skip-link" href="#page-content" onClick={event => { event.preventDefault(); document.getElementById('page-content')?.focus(); }}>Skip to page content</a>}
       {user && (
         <header className="topbar">
           <div className="brand">
@@ -1127,7 +1162,9 @@ function App() {
                 loadNotifications();
               }}
             >
-              <Icon name="notifications" size={20} />
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+                <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
               {unreadNotificationCount > 0 && (
                 <span className="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-bold text-white">
                   {unreadNotificationCount > 99 ? '99+' : unreadNotificationCount}
@@ -1139,10 +1176,10 @@ function App() {
         </header>
       )}
 
-      {user && error && <div className="alert alert-error" role="alert">{error}</div>}
+      {user && error && <div className="alert alert-error" role="alert">{error}<button className="button button-quiet ml-3" onClick={() => setError('')}>Dismiss</button></div>}
       {user && message && <div className="alert alert-success" role="status">{message}</div>}
 
-      {!user ? (
+      {sessionLoading ? <div className="loading-state" role="status">Restoring your session...</div> : !user ? (
         <AuthScreen
           authMode={authMode}
           setAuthMode={setAuthMode}
@@ -1158,12 +1195,20 @@ function App() {
         <section className="workspace">
           <nav className="route-nav" aria-label="Primary navigation">
             {routes.map((item) => (
-              <button key={item.key} type="button" className={route === item.key ? 'active' : ''} onClick={() => setRoute(item.key)}>
+              <button key={item.key} type="button" aria-current={route === item.key ? 'page' : undefined} className={route === item.key ? 'active' : ''} onClick={() => setRoute(item.key)}>
                 {item.label}
               </button>
             ))}
           </nav>
 
+          <nav className="breadcrumbs" aria-label="Breadcrumb">
+            <button type="button" onClick={() => setRoute('overview')}>Workspace</button>
+            <span aria-hidden="true">/</span>
+            <span aria-current="page">{routes.find(item => item.key === route)?.label || 'Overview'}</span>
+          </nav>
+          {workspaceLoading && <div className="loading-state" role="status">Loading your workspace...</div>}
+          {workspaceError && <div className="alert alert-error" role="alert"><p>{workspaceError}</p><button className="button button-quiet mt-3" onClick={loadWorkspace}>Try again</button></div>}
+          <div id="page-content" tabIndex={-1} className="page-content" hidden={workspaceLoading || Boolean(workspaceError)} aria-busy={busy}>
           {route === 'overview' && (
             <div className="page-heading">
               <div><p className="eyebrow">{user.role} workspace</p><h2>Welcome, {user.name}</h2></div>
@@ -1195,7 +1240,9 @@ function App() {
           )}
 
           {route === 'archive' && (
-            <ProjectArchive projects={archiveProjects} loading={archiveLoading} />
+            <>
+              {archiveError ? <div className="alert alert-error" role="alert"><p>{archiveError}</p><button className="button button-quiet mt-3" onClick={() => setArchiveRetry(value => value + 1)}>Retry archive</button></div> : <ProjectArchive projects={archiveProjects} loading={archiveLoading} />}
+            </>
           )}
 
           {route === 'proposal' && user.role === 'student' && (
@@ -1207,18 +1254,19 @@ function App() {
               {projects[0]?.coordinatorComment && (
                 <div className="feedback-box"><strong>Coordinator feedback</strong><p>{projects[0].coordinatorComment}</p></div>
               )}
-              <form className="proposal-form" onSubmit={handleSaveProposal}>
-                <label>Project title<input required disabled={!canEditProposal} value={proposal.title} onChange={(event) => updateProposal('title', event.target.value)} /></label>
-                <label>Category<input disabled={!canEditProposal} value={proposal.category} onChange={(event) => updateProposal('category', event.target.value)} /></label>
-                <label className="full-width">Abstract<textarea required disabled={!canEditProposal} rows="4" value={proposal.abstract} onChange={(event) => updateProposal('abstract', event.target.value)} /></label>
-                <label className="full-width">Problem statement<textarea required disabled={!canEditProposal} rows="4" value={proposal.problemStatement} onChange={(event) => updateProposal('problemStatement', event.target.value)} /></label>
-                <label className="full-width">Objectives (one per line)<textarea disabled={!canEditProposal} rows="3" value={proposal.objectives} onChange={(event) => updateProposal('objectives', event.target.value)} /></label>
-                <label className="full-width">Methodology<textarea required disabled={!canEditProposal} rows="3" value={proposal.methodology} onChange={(event) => updateProposal('methodology', event.target.value)} /></label>
-                <label>Technologies (comma-separated)<input disabled={!canEditProposal} value={proposal.technologies} onChange={(event) => updateProposal('technologies', event.target.value)} /></label>
-                <label>Keywords (comma-separated)<input disabled={!canEditProposal} value={proposal.keywords} onChange={(event) => updateProposal('keywords', event.target.value)} /></label>
+              <form id="proposal-form" className="proposal-form" onSubmit={handleSaveProposal}>
+                <p className="form-note full-width">Save a draft at any time. Complete the title, abstract, problem statement and methodology before submitting for review.</p>
+                <label>Project title<input required disabled={!canEditProposal || busy} value={proposal.title} onChange={(event) => updateProposal('title', event.target.value)} /></label>
+                <label>Category<input disabled={!canEditProposal || busy} value={proposal.category} onChange={(event) => updateProposal('category', event.target.value)} /></label>
+                <label className="full-width">Abstract<textarea required disabled={!canEditProposal || busy} rows="4" value={proposal.abstract} onChange={(event) => updateProposal('abstract', event.target.value)} /></label>
+                <label className="full-width">Problem statement<textarea required disabled={!canEditProposal || busy} rows="4" value={proposal.problemStatement} onChange={(event) => updateProposal('problemStatement', event.target.value)} /></label>
+                <label className="full-width">Objectives (one per line)<textarea disabled={!canEditProposal || busy} rows="3" value={proposal.objectives} onChange={(event) => updateProposal('objectives', event.target.value)} /></label>
+                <label className="full-width">Methodology<textarea required disabled={!canEditProposal || busy} rows="3" value={proposal.methodology} onChange={(event) => updateProposal('methodology', event.target.value)} /></label>
+                <label>Technologies (comma-separated)<input disabled={!canEditProposal || busy} value={proposal.technologies} onChange={(event) => updateProposal('technologies', event.target.value)} /></label>
+                <label>Keywords (comma-separated)<input disabled={!canEditProposal || busy} value={proposal.keywords} onChange={(event) => updateProposal('keywords', event.target.value)} /></label>
                 {canEditProposal ? (
                   <div className="action-row full-width">
-                    <button className="button button-quiet" type="submit" disabled={busy}>Save draft</button>
+                    <button className="button button-quiet" type="submit" formNoValidate disabled={busy}>Save draft</button>
                     <button className="button button-primary" type="button" disabled={busy} onClick={handleSubmitProposal}>Submit for review</button>
                   </div>
                 ) : <p className="form-note full-width">Proposal editing is locked until the coordinator requests revision.</p>}
@@ -1429,18 +1477,21 @@ function App() {
                     onSelect={handleSelectProject}
                     onRefresh={loadWorkspace}
                   />
-                  <SupervisorSubmissions
+                  {deliverablesLoading && <div className="loading-state" role="status">Loading project deliverables...</div>}
+                  {deliverablesError && <div className="alert alert-error" role="alert"><p>{deliverablesError}</p><button className="button button-quiet mt-3" onClick={() => loadProjectDeliverables(workspaceProjectId)}>Retry deliverables</button></div>}
+                  {!deliverablesLoading && !deliverablesError && <SupervisorSubmissions
                     project={projects.find((project) => project._id === workspaceProjectId) || null}
                     milestones={milestones}
                     submissions={submissions}
                     busy={busy}
                     onReview={handleReviewSubmission}
                     onRefresh={() => handleSelectProject({ _id: workspaceProjectId })}
-                  />
+                  />}
                 </>
               )
               : <div className="info-card"><h3>{user.role} workspace</h3><p>Role-specific project tools will appear here as their workflows are implemented.</p></div>
           )}
+          </div>
         </section>
       )}
     </main>
