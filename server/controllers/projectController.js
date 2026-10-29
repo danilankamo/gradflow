@@ -344,12 +344,14 @@ exports.getRoleDashboard = async (req, res, next) => {
     const milestonesByProject = new Map();
     milestones.forEach((milestone) => {
       const key = String(milestone.projectId);
-      milestonesByProject.set(key, [...(milestonesByProject.get(key) || []), milestone]);
+      if (!milestonesByProject.has(key)) milestonesByProject.set(key, []);
+      milestonesByProject.get(key).push(milestone);
     });
     const submissionsByProject = new Map();
     submissions.forEach((submission) => {
       const key = String(submission.projectId);
-      submissionsByProject.set(key, [...(submissionsByProject.get(key) || []), submission]);
+      if (!submissionsByProject.has(key)) submissionsByProject.set(key, []);
+      submissionsByProject.get(key).push(submission);
     });
     const enrichedProjects = projects.map((project) => {
       const projectData = project && typeof project.toObject === 'function' ? project.toObject() : { ...project };
