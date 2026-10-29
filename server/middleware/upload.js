@@ -21,7 +21,7 @@ const fileFilter = (req, file, cb) => {
 
 const upload = multer({
   storage,
-  limits: { fileSize: MAX_FILE_SIZE, files: 1 },
+  limits: { fileSize: MAX_FILE_SIZE, files: 1, fields: 10, fieldSize: 20000, parts: 12 },
   fileFilter,
 });
 
@@ -54,6 +54,12 @@ const uploadToCloudinary = (buffer, filename) =>
 const persistFile = async (file) => {
   if (!file || !file.buffer) return null;
 
+  if (!isAllowedFile(file) || file.buffer.length > MAX_FILE_SIZE || !hasValidContent(file)) {
+    const error = new Error('File content does not match an allowed file type or size');
+    error.statusCode = 400;
+    throw error;
+  }
+
   const uniqueName = `${Date.now()}-${crypto.randomBytes(8).toString('hex')}`;
   const extension = path.extname(file.originalname || '').toLowerCase();
   const safeName = `${uniqueName}${extension}`;
@@ -67,4 +73,18 @@ const persistFile = async (file) => {
   return `/uploads/${safeName}`;
 };
 
-module.exports = { upload, persistFile, uploadsDir };
+const hasValidContent = (file) => {
+  const extension = path.extname(file.originalname || '').toLowerCase();
+  const data = file.buffer;
+  if (!Buffer.isBuffer(data) || !data.length) return false;
+  const starts = (...bytes) => data.subarray(0, bytes.length).equals(Buffer.from(bytes));
+  if (extension === '.pdf') return data.subarray(0, 5).toString() === '%PDF-';
+  if (extension === '.png') return starts(137, 80, 78, 71, 13, 10, 26, 10);
+  if (['.jpg', '.jpeg'].includes(extension)) return starts(255, 216, 255);
+  if (['.zip', '.docx', '.pptx', '.xlsx'].includes(extension)) return starts(80, 75, 3, 4);
+  if (['.doc', '.ppt', '.xls'].includes(extension)) return starts(208, 207, 17, 224, 161, 177, 26, 225);
+  if (extension === '.txt') return !data.includes(0) && !data.toString('utf8').includes('\ufffd');
+  return false;
+};
+
+module.exports = { upload, persistFile, uploadsDir, hasValidContent };

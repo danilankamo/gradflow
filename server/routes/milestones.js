@@ -22,8 +22,11 @@ router.post('/projects/:id/milestones', authorize('supervisor'), async (req, res
     }
     req.body.projectId = req.params.id;
     const milestone = await Milestone.create({
-      ...req.body,
-      status: req.body.status || 'pending',
+      projectId: req.params.id,
+      title: req.body.title,
+      description: req.body.description,
+      dueDate: req.body.dueDate,
+      status: 'pending',
       order: req.body.order ?? (await Milestone.countDocuments({ projectId: req.params.id })) + 1,
     });
     await syncProjectProgress(req.params.id);

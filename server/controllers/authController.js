@@ -42,7 +42,7 @@ exports.register = async (req, res, next) => {
   try {
     const { name, email, password, department, studentId } = req.body;
 
-    if (!name || !email || !password) {
+    if (typeof name !== 'string' || !name.trim() || typeof email !== 'string' || !email.trim() || typeof password !== 'string' || password.length < 8 || Buffer.byteLength(password, 'utf8') > 72) {
       return res.status(400).json({
         success: false,
         message: 'Please provide a name, email and password',
@@ -59,8 +59,7 @@ exports.register = async (req, res, next) => {
       });
     }
 
-    const allowedRoles = ['student', 'supervisor', 'coordinator', 'examiner'];
-    const role = allowedRoles.includes(req.body.role) ? req.body.role : 'student';
+    const role = 'student';
 
     const user = await User.create({
       name: name.trim(),
@@ -81,7 +80,7 @@ exports.login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
 
-    if (!email || !password) {
+    if (typeof email !== 'string' || typeof password !== 'string' || !email.trim() || !password || Buffer.byteLength(password, 'utf8') > 72) {
       return res
         .status(400)
         .json({ success: false, message: 'Please provide an email and password' });

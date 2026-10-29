@@ -45,6 +45,7 @@ const UserSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
+    toJSON: { transform(doc, value) { delete value.passwordHash; return value; } },
   }
 );
 
@@ -55,6 +56,10 @@ UserSchema.methods.matchPassword = async function (enteredPassword) {
 UserSchema.pre('save', async function () {
   if (!this.isModified('passwordHash')) {
     return;
+  }
+
+  if (Buffer.byteLength(this.passwordHash, 'utf8') > 72) {
+    throw Object.assign(new Error('Password must not exceed 72 UTF-8 bytes'), { statusCode: 400 });
   }
 
   const salt = await bcrypt.genSalt(10);

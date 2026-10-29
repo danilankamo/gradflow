@@ -45,6 +45,9 @@ exports.updateMe = async (req, res, next) => {
 
 exports.getUser = async (req, res, next) => {
   try {
+    if (req.user.role !== 'coordinator' && String(req.user._id) !== String(req.params.id)) {
+      return res.status(403).json({ success: false, message: 'You can only view your own profile' });
+    }
     const user = await User.findById(req.params.id).select('-passwordHash');
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });

@@ -25,9 +25,12 @@ const errorHandler = (err, req, res, next) => {
     error = { message, statusCode: 400 };
   }
 
-  res.status(error.statusCode || 500).json({
+  if (err.type === 'entity.parse.failed') error = { statusCode: 400, message: 'Invalid JSON body' };
+  if (err.type === 'entity.too.large') error = { statusCode: 413, message: 'Request body is too large' };
+  const status = error.statusCode || 500;
+  res.status(status).json({
     success: false,
-    error: error.message || 'Server Error',
+    error: status >= 500 ? 'Server Error' : error.message || 'Request failed',
   });
 };
 
