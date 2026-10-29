@@ -69,7 +69,7 @@ function ProjectArchive({ projects, loading }) {
         </div>
       </div>
 
-      <div className="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:grid-cols-[minmax(0,1fr)_12rem_12rem]">
+      <div className="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-[minmax(0,1fr)_12rem_12rem]">
         <label>
           Search archive
           <input
@@ -172,7 +172,7 @@ function ProjectArchive({ projects, loading }) {
                             <li key={`${link.url}-${index}`}>
                               <a
                                 className="text-sm font-semibold text-brand-700 underline decoration-brand-300 underline-offset-2 hover:text-brand-900"
-                                href={link.url}
+                                href={link.url.startsWith('/') ? `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}${link.url}` : link.url}
                                 target="_blank"
                                 rel="noreferrer"
                               >

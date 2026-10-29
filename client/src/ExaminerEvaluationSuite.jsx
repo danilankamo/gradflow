@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 
 function Icon({ name, size = 18, fill = false, className = '' }) {
   return (
@@ -148,6 +148,22 @@ export default function ExaminerEvaluationSuite({
   );
   const [verdict, setVerdict] = useState('minor-corrections');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const dialogRef = useRef(null);
+  useEffect(() => {
+    if (!isModalOpen) return;
+    const previousFocus = document.activeElement;
+    const onKeyDown = event => {
+      if (event.key === 'Escape') { setIsModalOpen(false); return; }
+      if (event.key !== 'Tab') return;
+      const buttons = [...dialogRef.current.querySelectorAll('button:not(:disabled)')];
+      const first = buttons[0];
+      const last = buttons.at(-1);
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => { document.removeEventListener('keydown', onKeyDown); previousFocus?.focus(); };
+  }, [isModalOpen]);
   const [toastMessage, setToastMessage] = useState('');
   const [isReadOnly, setIsReadOnly] = useState(false);
 
@@ -264,7 +280,7 @@ export default function ExaminerEvaluationSuite({
     <div className="space-y-6 animate-in fade-in duration-200">
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 rounded-xl bg-primary-container p-4 text-white shadow-2xl border border-outline-variant/30 animate-in slide-in-from-bottom duration-300">
+        <div role="status" className="fixed bottom-4 left-4 right-4 sm:left-auto sm:bottom-6 sm:right-6 z-50 flex items-center gap-3 rounded-xl bg-primary-container p-4 text-white shadow-2xl border border-outline-variant/30 animate-in slide-in-from-bottom duration-300">
           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#0F766E] text-white">
             <Icon name="verified" size={20} fill />
           </div>
@@ -353,7 +369,7 @@ export default function ExaminerEvaluationSuite({
           </div>
 
           {/* Schedule Quick Block */}
-          <div className="min-w-[270px] rounded-xl border border-outline-variant bg-surface-container-low p-3.5 text-xs">
+          <div className="w-full sm:w-auto sm:min-w-[270px] rounded-xl border border-outline-variant bg-surface-container-low p-3.5 text-xs">
             <div className="flex items-center gap-2 font-semibold text-primary">
               <Icon name="event" size={16} className="text-secondary" />
               <span>{formattedDate}</span>
@@ -682,13 +698,13 @@ export default function ExaminerEvaluationSuite({
       {/* CONFIRMATION MODAL */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
-          <div className="w-full max-w-lg rounded-2xl border border-outline-variant bg-white p-6 shadow-2xl space-y-4">
+          <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="evaluation-confirm-title" className="w-full max-h-[90dvh] overflow-y-auto max-w-lg rounded-2xl border border-outline-variant bg-white p-6 shadow-2xl space-y-4">
             <div className="flex items-start gap-3">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-surface-container text-primary">
                 <Icon name="gavel" size={24} className="text-secondary" />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-primary">Confirm Defense Evaluation Submission</h3>
+                <h3 id="evaluation-confirm-title" className="text-lg font-bold text-primary">Confirm Defense Evaluation Submission</h3>
                 <p className="text-xs text-slate-500 mt-0.5">{project.title}</p>
               </div>
             </div>
@@ -728,6 +744,7 @@ export default function ExaminerEvaluationSuite({
             <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
               <button
                 type="button"
+                autoFocus
                 onClick={() => setIsModalOpen(false)}
                 className="rounded-lg border border-outline-variant px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition"
               >

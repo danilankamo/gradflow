@@ -74,4 +74,8 @@ const ProjectSchema = new mongoose.Schema(
   }
 );
 
+ProjectSchema.index({ students: 1, updatedAt: -1 });
+ProjectSchema.index({ supervisorId: 1, updatedAt: -1 });
+ProjectSchema.index({ status: 1, updatedAt: -1 });
+
 module.exports = mongoose.model('Project', ProjectSchema);
