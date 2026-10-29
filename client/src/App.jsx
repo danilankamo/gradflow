@@ -727,7 +727,7 @@ function App() {
     try {
       const endpoint = authMode === 'login' ? 'login' : 'register';
       const payload = authMode === 'register'
-        ? { ...authForm, role: authRole }
+        ? { ...authForm, role: 'student' }
         : { email: authForm.email, password: authForm.password };
       const result = await request(`/api/auth/${endpoint}`, {
         method: 'POST',
