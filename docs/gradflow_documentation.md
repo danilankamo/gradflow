@@ -588,6 +588,8 @@ Under Review
 
 | GET | /api/projects/my | Get student's projects |
 
+| GET | /api/projects/dashboard | Get role-scoped dashboard metrics, project health, workload, or assigned defenses |
+
 | PUT | /api/projects/:id | Student updates a draft or proposal returned for revision |
 
 | GET | /api/projects/coordinator/dashboard | Coordinator: project counts and pending proposal count |
@@ -669,7 +671,7 @@ Forgot password (optional if time permits)
 
 ## 9.2 Student Screens
 
-Student Dashboard — project status, progress, deadlines, notifications.
+Student Dashboard — project status and health, milestone progress and next deadline, supervisor, latest feedback, defense schedule and unread notifications.
 
 Profile — academic and contact information.
 
@@ -685,7 +687,7 @@ Notifications — a bell with an unread count and a project-linked list of workf
 
 ## 9.3 Supervisor Screens
 
-Supervisor Dashboard — assigned projects and progress.
+Supervisor Dashboard — assigned projects and health, pending reviews and overdue milestones.
 
 Project Details — milestones, submissions, feedback.
 
@@ -695,7 +697,7 @@ Submission Review — approve or request revision.
 
 ## 9.4 Coordinator Screens
 
-Coordinator Dashboard — project and workflow statistics.
+Coordinator Dashboard — project and workflow statistics, project health, supervisor workload and upcoming defense schedule.
 
 Proposal Queue — review and approve/reject proposals.
 
@@ -714,6 +716,8 @@ Examiner Dashboard — assigned defenses.
 Project Review — project information and final submissions.
 
 Evaluation Form — structured scoring and comments.
+
+Project health is calculated on the server from milestone progress, open overdue milestones and recent activity. Any overdue unfinished milestone is **Delayed**. A project is **At Risk** when it has no recorded activity, has no activity for at least 14 days, has an unfinished milestone due within 7 days, or has less than 50% milestone completion and a milestone due within 14 days. Completed and archived projects remain **Healthy**. Other projects are **Healthy**.
 
 # 10. Security & Threat Model
 
