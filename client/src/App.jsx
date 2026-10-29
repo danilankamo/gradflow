@@ -454,6 +454,7 @@ function App() {
   const [supervisors, setSupervisors] = useState([]);
   const [assignmentProjects, setAssignmentProjects] = useState([]);
   const [dashboard, setDashboard] = useState(null);
+  const [roleDashboard, setRoleDashboard] = useState(null);
   const [selectedProject, setSelectedProject] = useState(null);
   const [milestones, setMilestones] = useState([]);
   const [submissions, setSubmissions] = useState([]);
@@ -544,7 +545,7 @@ function App() {
           examinerData,
         ] = await Promise.all([
           request('/api/projects/coordinator/review', apiOptions()),
-          request('/api/projects/coordinator/dashboard', apiOptions()),
+          request('/api/projects/dashboard', apiOptions()),
           request('/api/users/supervisors', apiOptions()),
           request('/api/projects/coordinator/assignments', apiOptions()),
           request('/api/defenses', apiOptions()).catch(() => ({ data: [] })),
@@ -553,6 +554,7 @@ function App() {
         ]);
         setProjects(reviewData.data);
         setDashboard(dashboardData.data);
+        setRoleDashboard(dashboardData.data);
         setSupervisors(supervisorData.data);
         setAssignmentProjects(assignmentData.data);
         setDefenses(defenseData.data || []);
@@ -563,11 +565,13 @@ function App() {
           return retained || reviewData.data[0] || null;
         });
       } else if (user.role === 'student') {
-        const [result, defenseData] = await Promise.all([
+        const [result, dashboardData, defenseData] = await Promise.all([
           request('/api/projects/my', apiOptions()),
+          request('/api/projects/dashboard', apiOptions()),
           request('/api/defenses', apiOptions()).catch(() => ({ data: [] })),
         ]);
         setProjects(result.data);
+        setRoleDashboard(dashboardData.data);
         setDefenses(defenseData.data || []);
         const current = result.data[0];
         setProposal(current ? {
@@ -595,14 +599,19 @@ function App() {
           setEvaluations([]);
         }
       } else if (user.role === 'supervisor') {
-        const [result, defenseData] = await Promise.all([
-          request('/api/projects/supervisor/assigned', apiOptions()),
+        const [dashboardData, defenseData] = await Promise.all([
+          request('/api/projects/dashboard', apiOptions()),
           request('/api/defenses', apiOptions()).catch(() => ({ data: [] })),
         ]);
-        setProjects(result.data);
+        setRoleDashboard(dashboardData.data);
+        setProjects(dashboardData.data.projects || []);
         setDefenses(defenseData.data || []);
       } else if (user.role === 'examiner') {
-        const defenseData = await request('/api/defenses', apiOptions()).catch(() => ({ data: [] }));
+        const [dashboardData, defenseData] = await Promise.all([
+          request('/api/projects/dashboard', apiOptions()),
+          request('/api/defenses', apiOptions()).catch(() => ({ data: [] })),
+        ]);
+        setRoleDashboard(dashboardData.data);
         setDefenses(defenseData.data || []);
       }
       await loadNotifications();
@@ -1008,6 +1017,7 @@ function App() {
       setAssignmentProjects([]);
       setSelectedProject(null);
       setDashboard(null);
+      setRoleDashboard(null);
       setMilestones([]);
       setSubmissions([]);
       setDefenses([]);
@@ -1335,45 +1345,48 @@ function App() {
           )}
 
           {route === 'overview' && user.role === 'examiner' && (
-            <ExaminerWorkspace
-              defenses={defenses}
-              user={user}
-              busy={busy}
-              onRefresh={loadWorkspace}
-              onSaveEvaluation={handleSaveEvaluation}
-            />
+            <div className="space-y-5">
+              <div className="stats-grid">
+                <StatCard label="Assigned defenses" value={roleDashboard?.stats?.assignedDefenses ?? 0} />
+                <StatCard label="Upcoming defenses" value={roleDashboard?.stats?.upcomingDefenses ?? 0} />
+                <StatCard label="Evaluations to submit" value={roleDashboard?.stats?.pendingEvaluations ?? 0} accent />
+              </div>
+              <ExaminerWorkspace
+                defenses={defenses}
+                user={user}
+                busy={busy}
+                onRefresh={loadWorkspace}
+                onSaveEvaluation={handleSaveEvaluation}
+              />
+            </div>
           )}
 
           {route === 'overview' && user.role === 'coordinator' && dashboard && (
-            <div className="stats-grid">
-              <StatCard label="Total projects" value={dashboard.totalProjects} />
-              <StatCard label="Pending proposals" value={dashboard.pendingProposals} accent />
-              <StatCard label="Approved projects" value={dashboard.projectsByStatus?.Approved || 0} />
-              <StatCard
-                label="Defense Scheduled"
-                value={
-                  dashboard.projectsByStatus?.['Defense Scheduled'] ||
-                  defenses.filter((d) => d.status === 'scheduled').length
-                }
-              />
-            </div>
+            <CoordinatorDashboard
+              dashboard={dashboard}
+              onOpenRoute={setRoute}
+            />
           )}
 
           {route === 'overview' && user.role === 'student' && (
-            <div className="space-y-5">
-              <div className="info-card">
-                <h3>Proposal status</h3>
-                <p>
-                  {projectStatus === 'No proposal'
-                    ? 'Start by creating your graduation project proposal.'
-                    : `Your proposal is ${projectStatus.toLowerCase()}.`}
-                </p>
-              </div>
-              <StudentDefenseCard
-                defense={defenses.find((d) => d.status === 'scheduled') || defenses[0]}
-                projectStatus={projectStatus}
-              />
-            </div>
+            <StudentDashboard
+              project={roleDashboard?.projects?.[0]}
+              projectStatus={projectStatus}
+              defense={defenses.find((d) => d.status === 'scheduled') || defenses[0]}
+              unreadNotifications={unreadNotificationCount}
+              onOpenRoute={setRoute}
+            />
+          )}
+
+          {route === 'overview' && user.role === 'supervisor' && (
+            <SupervisorDashboard
+              dashboard={roleDashboard}
+              onOpenProject={(project) => {
+                setWorkspaceProjectId(project._id);
+                setRoute('workspace');
+                loadProjectDeliverables(project._id).catch((loadError) => setError(loadError.message));
+              }}
+            />
           )}
 
           {route === 'workspace' && (
@@ -1401,6 +1414,238 @@ function App() {
         </section>
       )}
     </main>
+  );
+}
+
+function HealthBadge({ status }) {
+  return <span className={`health-badge health-${status?.toLowerCase().replaceAll(' ', '-') || 'healthy'}`}>
+    {status || 'Healthy'}
+  </span>;
+}
+
+function StudentDashboard({ project, projectStatus, defense, unreadNotifications, onOpenRoute }) {
+  if (!project) {
+    return (
+      <section className="dashboard-welcome">
+        <p className="eyebrow">Your project at a glance</p>
+        <h2>Start your graduation project</h2>
+        <p>Create a proposal to begin tracking milestones, supervisor feedback, and your defense.</p>
+        <button className="button button-primary mt-4" type="button" onClick={() => onOpenRoute('proposal')}>
+          Create proposal
+        </button>
+      </section>
+    );
+  }
+
+  const supervisor = project.supervisorId && typeof project.supervisorId === 'object'
+    ? project.supervisorId
+    : null;
+  const nextDeadline = project.health?.nextDeadline;
+  const progress = project.health?.progress ?? project.progress ?? 0;
+
+  return (
+    <div className="space-y-5">
+      <section className="dashboard-welcome">
+        <div className="page-heading">
+          <div>
+            <p className="eyebrow">Your project at a glance</p>
+            <h2>{project.title}</h2>
+          </div>
+          <HealthBadge status={project.health?.status} />
+        </div>
+        <div className="dashboard-project-progress">
+          <div className="flex items-center justify-between gap-3 text-sm">
+            <span className="font-semibold text-slate-700">Milestone progress</span>
+            <strong className="text-brand-700">{progress}%</strong>
+          </div>
+          <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-slate-200" role="progressbar" aria-valuenow={progress} aria-valuemin="0" aria-valuemax="100">
+            <div className="h-full rounded-full bg-brand-600 transition-all" style={{ width: `${progress}%` }} />
+          </div>
+          <p className="mt-2 text-sm text-slate-500">
+            {project.health?.completedMilestones || 0} of {project.health?.totalMilestones || 0} milestones approved
+          </p>
+        </div>
+        <div className="dashboard-card-grid mt-5">
+          <div className="dashboard-detail-card">
+            <span>Project status</span>
+            <strong>{projectStatus}</strong>
+          </div>
+          <div className="dashboard-detail-card">
+            <span>Next milestone</span>
+            <strong>{nextDeadline ? new Date(nextDeadline).toLocaleDateString() : 'No upcoming deadline'}</strong>
+          </div>
+          <div className="dashboard-detail-card">
+            <span>Supervisor</span>
+            <strong>{supervisor?.name || 'Not assigned yet'}</strong>
+            {supervisor?.department && <small>{supervisor.department}</small>}
+          </div>
+          <button className="dashboard-detail-card dashboard-detail-action" type="button" onClick={() => onOpenRoute('notifications')}>
+            <span>Unread updates</span>
+            <strong>{unreadNotifications}</strong>
+            <small>View notifications</small>
+          </button>
+        </div>
+      </section>
+
+      <div className="dashboard-two-column">
+        <section className="management-card">
+          <div className="section-heading"><h3>Latest feedback</h3></div>
+          {project.latestFeedback || project.coordinatorComment ? (
+            <p className="dashboard-feedback">{project.latestFeedback || project.coordinatorComment}</p>
+          ) : (
+            <p className="empty-state">Supervisor and coordinator feedback will appear here.</p>
+          )}
+        </section>
+        <StudentDefenseCard defense={defense} projectStatus={projectStatus} />
+      </div>
+    </div>
+  );
+}
+
+function SupervisorDashboard({ dashboard, onOpenProject }) {
+  const stats = dashboard?.stats || {};
+  const projects = dashboard?.projects || [];
+
+  return (
+    <section className="subsection">
+      <div className="stats-grid">
+        <StatCard label="Assigned projects" value={stats.assignedProjects ?? 0} />
+        <StatCard label="Pending reviews" value={stats.pendingReviews ?? 0} accent />
+        <StatCard label="Overdue milestones" value={stats.overdueMilestones ?? 0} />
+        <StatCard label="Projects at risk" value={(stats.atRiskProjects || 0) + (stats.delayedProjects || 0)} />
+      </div>
+      <section className="management-card">
+        <div className="page-heading">
+          <div><p className="eyebrow">Faculty workspace</p><h2>Assigned projects</h2></div>
+          <span className="count-pill">{projects.length}</span>
+        </div>
+        {projects.length === 0 ? (
+          <p className="empty-state mt-4">Projects assigned to you will appear here.</p>
+        ) : (
+          <div className="dashboard-project-list mt-4">
+            {projects.map((project) => (
+              <button
+                className="dashboard-project-row"
+                key={project._id}
+                type="button"
+                onClick={() => onOpenProject(project)}
+              >
+                <span className="min-w-0 flex-1">
+                  <strong>{project.title}</strong>
+                  <small>{project.students?.map((student) => student.name).filter(Boolean).join(', ') || 'Student details unavailable'}</small>
+                  <span className="dashboard-project-meta">
+                    {project.pendingReviews} pending review{project.pendingReviews === 1 ? '' : 's'}
+                    {' · '}
+                    {project.health?.overdueMilestones || 0} overdue milestone{project.health?.overdueMilestones === 1 ? '' : 's'}
+                  </span>
+                  {project.overdueMilestoneDetails?.length > 0 && (
+                    <small className="text-rose-700">
+                      Overdue: {project.overdueMilestoneDetails.map((milestone) => milestone.title).join(', ')}
+                    </small>
+                  )}
+                </span>
+                <span className="flex flex-col items-end gap-2">
+                  <HealthBadge status={project.health?.status} />
+                  <small>{project.health?.nextDeadline ? `Next due ${new Date(project.health.nextDeadline).toLocaleDateString()}` : 'No upcoming deadline'}</small>
+                  <span className="dashboard-progress-value">{project.health?.progress ?? project.progress ?? 0}% complete</span>
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+      </section>
+    </section>
+  );
+}
+
+function CoordinatorDashboard({ dashboard, onOpenRoute }) {
+  const workload = dashboard.supervisorWorkload || [];
+  const defenses = dashboard.upcomingDefenses || [];
+  const healthCounts = dashboard.healthCounts || {};
+  const healthProjects = dashboard.healthProjects || [];
+  const projectStatuses = Object.entries(dashboard.projectsByStatus || {});
+
+  return (
+    <section className="subsection">
+      <div className="stats-grid">
+        <StatCard label="Total projects" value={dashboard.totalProjects} />
+        <StatCard label="Pending proposals" value={dashboard.pendingProposals} accent />
+        <StatCard label="Active projects" value={dashboard.projectsByStatus?.['In Progress'] || 0} />
+        <StatCard label="Upcoming (next 5)" value={defenses.length} />
+      </div>
+      <div className="stats-grid">
+        <StatCard label="Healthy" value={healthCounts.Healthy || 0} />
+        <StatCard label="At risk" value={healthCounts['At Risk'] || 0} />
+        <StatCard label="Delayed" value={healthCounts.Delayed || 0} accent />
+      </div>
+      <section className="management-card">
+        <div className="section-heading"><h3>Projects by status</h3></div>
+        <div className="flex flex-wrap gap-2">
+          {projectStatuses.map(([status, count]) => (
+            <span className="dashboard-status-pill" key={status}>
+              {status}<strong>{count}</strong>
+            </span>
+          ))}
+          {projectStatuses.length === 0 && <p className="empty-state w-full">No projects have been created yet.</p>}
+        </div>
+      </section>
+      <div className="dashboard-two-column">
+        <section className="management-card">
+          <div className="section-heading"><h3>Supervisor workload</h3><span>{workload.length}</span></div>
+          {workload.length === 0 ? (
+            <p className="empty-state">No supervisors are registered yet.</p>
+          ) : (
+            <div className="dashboard-table">
+              {workload.map((supervisor) => (
+                <div className="dashboard-table-row" key={supervisor._id}>
+                  <span><strong>{supervisor.name}</strong><small>{supervisor.department || 'Department not set'}</small></span>
+                  <span className="workload-count">{supervisor.projectCount} project{supervisor.projectCount === 1 ? '' : 's'}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          <button className="button button-quiet mt-4" type="button" onClick={() => onOpenRoute('supervisors')}>
+            Manage supervisors
+          </button>
+        </section>
+        <section className="management-card">
+          <div className="section-heading"><h3>Upcoming defense schedule</h3><span>{defenses.length}</span></div>
+          {defenses.length === 0 ? (
+            <p className="empty-state">No upcoming defenses are scheduled.</p>
+          ) : (
+            <div className="dashboard-table">
+              {defenses.map((defense) => (
+                <div className="dashboard-table-row" key={defense._id}>
+                  <span>
+                    <strong>{defense.projectId?.title || 'Graduation project'}</strong>
+                    <small>{new Date(defense.date).toLocaleDateString()} · {defense.startTime} · {defense.room}</small>
+                  </span>
+                  <small>{defense.examinerIds?.map((examiner) => examiner.name).filter(Boolean).join(', ')}</small>
+                </div>
+              ))}
+            </div>
+          )}
+          <button className="button button-quiet mt-4" type="button" onClick={() => onOpenRoute('defenses')}>
+            Open defense schedule
+          </button>
+        </section>
+      </div>
+      <section className="management-card">
+        <div className="section-heading"><h3>Projects needing attention</h3><span>{healthProjects.length}</span></div>
+        {healthProjects.length === 0 ? (
+          <p className="empty-state">All projects are currently healthy.</p>
+        ) : (
+          <div className="dashboard-project-list">
+            {healthProjects.map((project) => (
+              <div className="dashboard-project-row" key={project._id}>
+                <span><strong>{project.title}</strong><small>{project.status}</small></span>
+                <span className="flex items-center gap-3"><HealthBadge status={project.health.status} /><small>{project.health.overdueMilestones} overdue</small></span>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+    </section>
   );
 }
 
