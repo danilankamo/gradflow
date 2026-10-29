@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import SupervisorManagement, { SupervisorWorkspace } from './SupervisorManagement.jsx';
 import { StudentMilestones, SupervisorSubmissions } from './DeliverableWorkflow.jsx';
+import ProjectArchive from './ProjectArchive.jsx';
 import {
   CoordinatorDefenseScheduler,
   StudentDefenseCard,
@@ -461,6 +462,8 @@ function App() {
   const [defenses, setDefenses] = useState([]);
   const [evaluations, setEvaluations] = useState([]);
   const [notifications, setNotifications] = useState([]);
+  const [archiveProjects, setArchiveProjects] = useState([]);
+  const [archiveLoading, setArchiveLoading] = useState(false);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [schedulableProjects, setSchedulableProjects] = useState([]);
   const [examiners, setExaminers] = useState([]);
@@ -657,12 +660,33 @@ function App() {
     loadWorkspace();
   }, [loadWorkspace]);
 
+  useEffect(() => {
+    if (!user || route !== 'archive') return undefined;
+    let active = true;
+    setArchiveLoading(true);
+    setError('');
+    request('/api/projects/archive', apiOptions())
+      .then((result) => {
+        if (active) setArchiveProjects(result.data);
+      })
+      .catch((archiveError) => {
+        if (active) setError(archiveError.message);
+      })
+      .finally(() => {
+        if (active) setArchiveLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [apiOptions, route, user]);
+
   const routes = useMemo(() => {
     if (!user) return [];
     const shared = [
       { key: 'overview', label: 'Overview' },
       { key: 'profile', label: 'Profile' },
       { key: 'notifications', label: 'Notifications' },
+      { key: 'archive', label: 'Project Archive' },
     ];
     if (user.role === 'student') {
       return [
@@ -1022,6 +1046,8 @@ function App() {
       setSubmissions([]);
       setDefenses([]);
       setNotifications([]);
+      setArchiveProjects([]);
+      setArchiveLoading(false);
       setSchedulableProjects([]);
       setExaminers([]);
       setWorkspaceProjectId('');
@@ -1166,6 +1192,10 @@ function App() {
               onMarkAllRead={handleMarkAllNotificationsRead}
               onOpenProject={handleOpenNotificationProject}
             />
+          )}
+
+          {route === 'archive' && (
+            <ProjectArchive projects={archiveProjects} loading={archiveLoading} />
           )}
 
           {route === 'proposal' && user.role === 'student' && (
