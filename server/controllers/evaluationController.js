@@ -3,6 +3,7 @@ const Defense = require('../models/Defense');
 const Project = require('../models/Project');
 const Evaluation = require('../models/Evaluation');
 const Notification = require('../models/Notification');
+const { isReadOnlyProject } = require('../utils/projectStatus');
 
 /**
  * Calculates total score from configured 5-criteria rubric:
@@ -72,6 +73,18 @@ exports.submitEvaluation = async (req, res, next) => {
       });
     }
 
+    const projectId = defense.projectId?._id || defense.projectId;
+    const project = await Project.findById(projectId);
+    if (!project) {
+      return res.status(404).json({ success: false, message: 'Project not found' });
+    }
+    if (isReadOnlyProject(project)) {
+      return res.status(409).json({
+        success: false,
+        message: 'Completed projects are read-only',
+      });
+    }
+
     const {
       scores = {},
       comments = '',
@@ -88,8 +101,6 @@ exports.submitEvaluation = async (req, res, next) => {
     };
 
     const calculatedTotal = calculateRubricTotal(validatedScores);
-
-    const projectId = defense.projectId?._id || defense.projectId;
 
     let evaluation = await Evaluation.findOne({
       defenseId: defense._id,
@@ -120,20 +131,17 @@ exports.submitEvaluation = async (req, res, next) => {
       });
     }
 
-    // Transition project status to 'Evaluated' as defined in GradFlow lifecycle (FR-15)
-    const project = await Project.findById(projectId);
-    if (project && project.status !== 'Completed' && project.status !== 'Archived') {
-      project.status = 'Evaluated';
-      await project.save();
-    }
-
     // Notify project participants once the complete examiner panel has submitted.
     const evaluationCount = await Evaluation.countDocuments({ defenseId: defense._id });
     const wasCompleted = defense.status === 'completed';
     if (evaluationCount >= defense.examinerIds.length) {
       defense.status = 'completed';
-      await defense.save();
+      project.status = 'Completed';
+    } else {
+      project.status = 'Evaluated';
     }
+    await project.save();
+    if (!wasCompleted && defense.status === 'completed') await defense.save();
 
     if (!wasCompleted && defense.status === 'completed') {
       const notifications = [];

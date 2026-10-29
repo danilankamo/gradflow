@@ -143,7 +143,7 @@ test('TC-8: rejects evaluation when examiner is not assigned to the defense', as
   assert.match(res.body.message, /not authorized to evaluate/i);
 });
 
-test('successfully records examiner evaluation, updates project to Evaluated, and notifies parties', async () => {
+test('completes project after the full examiner panel submits and notifies parties', async () => {
   let projectSaved = false;
   let notificationsCreated = [];
 
@@ -214,12 +214,50 @@ test('successfully records examiner evaluation, updates project to Evaluated, an
 
   assert.equal(res.statusCode, 201);
   assert.equal(res.body.success, true);
-  assert.equal(fakeProject.status, 'Evaluated');
+  assert.equal(fakeProject.status, 'Completed');
   assert.equal(projectSaved, true);
   assert.equal(fakeDefense.status, 'completed');
   assert.equal(notificationsCreated.length, 2);
   assert.equal(notificationsCreated[0].userId, STUDENT_ID);
   assert.equal(notificationsCreated[1].userId, SUPERVISOR_ID);
+});
+
+test('completed project evaluations are read-only', async () => {
+  const fakeProject = {
+    _id: PROJECT_ID,
+    status: 'Completed',
+    save: async () => {
+      throw new Error('A completed project should not be saved');
+    },
+  };
+  Defense.findById = () => ({
+    populate: () => Promise.resolve({
+      _id: DEFENSE_ID,
+      status: 'completed',
+      examinerIds: [ASSIGNED_EXAMINER_ID],
+      projectId: fakeProject,
+    }),
+  });
+  Project.findById = async () => fakeProject;
+  Evaluation.findOne = async () => {
+    throw new Error('A completed project evaluation should not be changed');
+  };
+
+  const res = responseRecorder();
+  await controller.submitEvaluation(
+    {
+      params: { id: DEFENSE_ID },
+      user: { _id: ASSIGNED_EXAMINER_ID, role: 'examiner' },
+      body: { scores: {} },
+    },
+    res,
+    (error) => {
+      throw error;
+    }
+  );
+
+  assert.equal(res.statusCode, 409);
+  assert.match(res.body.message, /read-only/i);
 });
 
 test('does not notify recipients until every assigned examiner has submitted an evaluation', async () => {

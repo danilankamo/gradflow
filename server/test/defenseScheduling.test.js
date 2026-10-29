@@ -435,3 +435,25 @@ test('cancelling defense marks status cancelled and reverts project to Final Sub
   assert.equal(defenseStatus, 'cancelled');
   assert.equal(projectStatus, 'Final Submission');
 });
+
+test('completed defense schedules cannot be edited', async () => {
+  Defense.findById = async () => ({
+    _id: DEFENSE_ID,
+    projectId: PROJECT_ID,
+    status: 'completed',
+    save: async () => {
+      throw new Error('A completed defense should not be changed');
+    },
+  });
+  Project.findById = async () => ({ _id: PROJECT_ID, status: 'Completed' });
+
+  const res = responseRecorder();
+  await controller.updateDefense(
+    { params: { id: DEFENSE_ID }, body: { room: 'New room' } },
+    res,
+    throwNext
+  );
+
+  assert.equal(res.statusCode, 409);
+  assert.match(res.body.message, /read-only/i);
+});

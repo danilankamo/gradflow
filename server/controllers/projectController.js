@@ -7,6 +7,7 @@ const { evaluateProjectHealth } = require('../utils/projectHealth');
 const Defense = require('../models/Defense');
 const Submission = require('../models/Submission');
 const Evaluation = require('../models/Evaluation');
+const { READ_ONLY_PROJECT_STATUSES, isReadOnlyProject } = require('../utils/projectStatus');
 
 const proposalStatuses = ['Submitted', 'Under Review', 'Resubmitted'];
 const editableStatuses = ['Draft', 'Revision'];
@@ -142,6 +143,111 @@ exports.getMyProjects = async (req, res, next) => {
   try {
     const projects = await Project.find({ students: req.user.id }).sort({ updatedAt: -1 });
     res.status(200).json({ success: true, count: projects.length, data: projects });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.getProjectArchive = async (req, res, next) => {
+  try {
+    const user = req.user;
+    if (!['student', 'supervisor', 'coordinator', 'examiner'].includes(user.role)) {
+      return res.status(403).json({ success: false, message: 'User role is not authorized to view the archive' });
+    }
+
+    const projectFilter = { status: { $in: READ_ONLY_PROJECT_STATUSES } };
+    if (user.role === 'student') {
+      projectFilter.students = user._id;
+    } else if (user.role === 'supervisor') {
+      projectFilter.supervisorId = user._id;
+    } else if (user.role === 'examiner') {
+      const completedDefenses = await Defense.find({
+        examinerIds: user._id,
+        status: 'completed',
+      }).select('projectId');
+      projectFilter._id = { $in: completedDefenses.map((defense) => defense.projectId) };
+    }
+
+    const projects = await Project.find(projectFilter)
+      .populate('students', 'name department studentId')
+      .populate('supervisorId', 'name department')
+      .sort({ updatedAt: -1 });
+    const projectIds = projects.map((project) => project._id);
+    if (projectIds.length === 0) {
+      return res.status(200).json({ success: true, count: 0, data: [] });
+    }
+
+    const [evaluations, submissions, defenses] = await Promise.all([
+      Evaluation.find({ projectId: { $in: projectIds } })
+        .select('projectId total submittedAt')
+        .sort({ submittedAt: -1 }),
+      Submission.find({ projectId: { $in: projectIds } })
+        .select('projectId githubUrl fileUrl fileName submittedAt')
+        .sort({ submittedAt: -1 }),
+      Defense.find({ projectId: { $in: projectIds }, status: 'completed' })
+        .select('projectId date room updatedAt')
+        .sort({ updatedAt: -1 }),
+    ]);
+
+    const evaluationsByProject = new Map();
+    evaluations.forEach((evaluation) => {
+      const projectId = String(evaluation.projectId);
+      if (!evaluationsByProject.has(projectId)) evaluationsByProject.set(projectId, []);
+      evaluationsByProject.get(projectId).push(evaluation);
+    });
+    const submissionsByProject = new Map();
+    submissions.forEach((submission) => {
+      const projectId = String(submission.projectId);
+      if (!submissionsByProject.has(projectId)) submissionsByProject.set(projectId, []);
+      submissionsByProject.get(projectId).push(submission);
+    });
+    const defenseByProject = new Map();
+    defenses.forEach((defense) => {
+      const projectId = String(defense.projectId);
+      if (!defenseByProject.has(projectId)) defenseByProject.set(projectId, defense);
+    });
+
+    const data = projects.map((project) => {
+      const key = String(project._id);
+      const projectEvaluations = evaluationsByProject.get(key) || [];
+      const projectSubmissions = submissionsByProject.get(key) || [];
+      const defense = defenseByProject.get(key);
+      const score = projectEvaluations.length
+        ? Math.round(
+          (projectEvaluations.reduce((total, evaluation) => total + evaluation.total, 0) /
+            projectEvaluations.length) *
+            10
+        ) / 10
+        : null;
+
+      return {
+        _id: project._id,
+        title: project.title,
+        abstract: project.abstract || '',
+        technologies: project.technologies || [],
+        status: project.status,
+        students: project.students || [],
+        department: project.students?.[0]?.department || project.supervisorId?.department || '',
+        supervisor: project.supervisorId || null,
+        score,
+        completionDate: defense?.updatedAt || defense?.date || project.updatedAt,
+        defense: defense ? { date: defense.date, room: defense.room } : null,
+        links: projectSubmissions.flatMap((submission) => [
+          ...(submission.githubUrl
+            ? [{ label: 'Source repository', type: 'Repository', url: submission.githubUrl }]
+            : []),
+          ...(submission.fileUrl
+            ? [{
+              label: submission.fileName || 'Submitted deliverable',
+              type: 'Deliverable',
+              url: submission.fileUrl,
+            }]
+            : []),
+        ]),
+      };
+    });
+
+    res.status(200).json({ success: true, count: data.length, data });
   } catch (err) {
     next(err);
   }
@@ -626,6 +732,9 @@ exports.createProjectMilestone = async (req, res, next) => {
     });
     if (!project) {
       return res.status(404).json({ success: false, message: 'Project not found' });
+    }
+    if (isReadOnlyProject(project)) {
+      return res.status(409).json({ success: false, message: 'Completed projects are read-only' });
     }
 
     const Milestone = require('../models/Milestone');

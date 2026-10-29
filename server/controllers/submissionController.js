@@ -11,6 +11,7 @@ const {
   REVIEW_ACTION_STATUS,
 } = require('../utils/submissionWorkflow');
 const { syncProjectProgress } = require('../utils/projectProgress');
+const { isReadOnlyProject } = require('../utils/projectStatus');
 
 const PROPOSAL_STAGE_STATUSES = [
   'Draft',
@@ -48,6 +49,9 @@ exports.createSubmission = async (req, res, next) => {
     const project = await Project.findById(milestone.projectId);
     if (!project) {
       return res.status(404).json({ success: false, message: 'Project not found' });
+    }
+    if (isReadOnlyProject(project)) {
+      return res.status(409).json({ success: false, message: 'Completed projects are read-only' });
     }
 
     const isOwner = (project.students || []).some(
@@ -156,6 +160,9 @@ exports.reviewSubmission = async (req, res, next) => {
         success: false,
         message: 'You can only review submissions for your assigned project',
       });
+    }
+    if (isReadOnlyProject(project)) {
+      return res.status(409).json({ success: false, message: 'Completed projects are read-only' });
     }
 
     if (submission.status !== 'submitted') {

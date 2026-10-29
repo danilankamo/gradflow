@@ -631,7 +631,33 @@ test('complete lifecycle advances through milestone approvals, final submission,
   );
   assert.equal(assignedEvalRes.statusCode, 201);
   assert.equal(assignedEvalRes.body.data.total, 90);
-  assert.equal(projectAfterMilestones.status, 'Evaluated');
+  assert.equal(projectAfterMilestones.status, 'Completed');
   assert.equal(db.defenses[0].status, 'completed');
   assert.equal(db.evaluations.length, 1);
+
+  const archiveRes = responseRecorder();
+  await projectController.getProjectArchive(
+    { user: { _id: coordinator._id, role: 'coordinator' } },
+    archiveRes,
+    throwNext
+  );
+  assert.equal(archiveRes.statusCode, 200);
+  assert.equal(archiveRes.body.count, 1);
+  assert.equal(archiveRes.body.data[0]._id, projectId);
+  assert.equal(archiveRes.body.data[0].score, 90);
+  assert.equal(archiveRes.body.data[0].status, 'Completed');
+  assert.equal(archiveRes.body.data[0].links[0].url, 'https://github.com/danilankamo/gradflow');
+
+  const readOnlySubmissionRes = responseRecorder();
+  await submissionController.createSubmission(
+    {
+      params: { id: projectMilestones[0]._id },
+      user: { _id: student._id },
+      body: { githubUrl: 'https://github.com/danilankamo/gradflow' },
+    },
+    readOnlySubmissionRes,
+    throwNext
+  );
+  assert.equal(readOnlySubmissionRes.statusCode, 409);
+  assert.match(readOnlySubmissionRes.body.message, /read-only/i);
 });

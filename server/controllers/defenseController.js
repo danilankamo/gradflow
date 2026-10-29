@@ -4,6 +4,7 @@ const Notification = require('../models/Notification');
 const Project = require('../models/Project');
 const User = require('../models/User');
 const { detectDefenseConflicts, isTimeIntervalValid } = require('../utils/defenseConflict');
+const { isReadOnlyProject } = require('../utils/projectStatus');
 
 exports.createDefense = async (req, res, next) => {
   try {
@@ -49,6 +50,9 @@ exports.createDefense = async (req, res, next) => {
         success: false,
         message: `Only projects in Final Submission status can be scheduled for defense. Current status is "${project.status}".`,
       });
+    }
+    if (isReadOnlyProject(project)) {
+      return res.status(409).json({ success: false, message: 'Completed projects are read-only' });
     }
 
     if (project.supervisorId && uniqueExaminerIds.includes(String(project.supervisorId))) {
@@ -276,6 +280,14 @@ exports.updateDefense = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Defense not found' });
     }
 
+    const project = await Project.findById(defense.projectId);
+    if (!project) {
+      return res.status(404).json({ success: false, message: 'Project not found' });
+    }
+    if (isReadOnlyProject(project) || defense.status === 'completed') {
+      return res.status(409).json({ success: false, message: 'Completed projects are read-only' });
+    }
+
     if (defense.status === 'cancelled') {
       return res.status(400).json({
         success: false,
@@ -383,11 +395,15 @@ exports.cancelDefense = async (req, res, next) => {
       });
     }
 
+    const project = await Project.findById(defense.projectId);
+    if (isReadOnlyProject(project) || defense.status === 'completed') {
+      return res.status(409).json({ success: false, message: 'Completed projects are read-only' });
+    }
+
     defense.status = 'cancelled';
     await defense.save();
 
     // Revert project status back to 'Final Submission' so it can be rescheduled
-    const project = await Project.findById(defense.projectId);
     if (project && project.status === 'Defense Scheduled') {
       project.status = 'Final Submission';
       await project.save();
