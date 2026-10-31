@@ -358,7 +358,7 @@ export function CoordinatorDefenseScheduler({
                         className={`flex items-start gap-2.5 rounded-lg p-2 transition cursor-pointer ${
                           isSelected
                             ? 'bg-brand-50 border border-brand-200'
-                            : 'bg-white border border-slate-200/80 hover:bg-slate-50'
+                            : 'bg-surface-container-lowest border border-slate-200/80 hover:bg-slate-50'
                         } ${isSupervisor ? 'opacity-50 cursor-not-allowed' : ''}`}
                       >
                         <input
@@ -410,7 +410,7 @@ export function CoordinatorDefenseScheduler({
             <h3 className="text-base font-semibold text-slate-900">
               Scheduled Defense Sessions ({filteredDefenses.length})
             </h3>
-            <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 text-xs">
+            <div className="inline-flex rounded-lg border border-slate-200 bg-surface-container-lowest p-0.5 text-xs">
               <button
                 type="button"
                 className={`rounded-md px-2.5 py-1 font-medium transition ${
@@ -460,7 +460,7 @@ export function CoordinatorDefenseScheduler({
                 return (
                   <article
                     key={defense._id}
-                    className={`rounded-2xl border bg-white p-5 shadow-sm transition ${
+                    className={`rounded-2xl border bg-surface-container-lowest p-5 shadow-sm transition ${
                       isCancelled
                         ? 'border-slate-200 bg-slate-50/70 opacity-75'
                         : 'border-slate-200 hover:border-brand-300'
@@ -596,7 +596,7 @@ export function StudentDefenseCard({ defense, projectStatus, evaluations = [] })
   const latestEval = evaluations && evaluations.length > 0 ? evaluations[0] : null;
 
   return (
-    <article className="rounded-2xl border-2 border-violet-200 bg-gradient-to-br from-violet-50/50 to-white p-6 shadow-sm space-y-5">
+    <article className="rounded-2xl border-2 border-violet-200 bg-gradient-to-br from-violet-50/50 to-surface-container-lowest p-6 shadow-sm space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-violet-100 pb-4">
         <div>
           <span className="eyebrow text-violet-700">Official Defense Notice</span>
@@ -635,7 +635,7 @@ export function StudentDefenseCard({ defense, projectStatus, evaluations = [] })
           </div>
 
           {latestEval.comments && (
-            <div className="text-xs text-slate-700 bg-white p-3 rounded-lg border border-[#0F766E]/20">
+            <div className="text-xs text-slate-700 bg-surface-container-lowest p-3 rounded-lg border border-[#0F766E]/20">
               <strong className="block text-slate-800 mb-1">Commendations &amp; Remarks:</strong>
               <p>{latestEval.comments}</p>
             </div>
@@ -651,7 +651,7 @@ export function StudentDefenseCard({ defense, projectStatus, evaluations = [] })
       )}
 
       <div className="mt-4 grid gap-4 sm:grid-cols-3">
-        <div className="rounded-xl bg-white p-3.5 border border-slate-200/80 shadow-xs">
+        <div className="rounded-xl bg-surface-container-lowest p-3.5 border border-slate-200/80 shadow-xs">
           <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
             Date &amp; Day
           </span>
@@ -660,7 +660,7 @@ export function StudentDefenseCard({ defense, projectStatus, evaluations = [] })
           </strong>
         </div>
 
-        <div className="rounded-xl bg-white p-3.5 border border-slate-200/80 shadow-xs">
+        <div className="rounded-xl bg-surface-container-lowest p-3.5 border border-slate-200/80 shadow-xs">
           <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
             Time Slot
           </span>
@@ -669,7 +669,7 @@ export function StudentDefenseCard({ defense, projectStatus, evaluations = [] })
           </strong>
         </div>
 
-        <div className="rounded-xl bg-white p-3.5 border border-slate-200/80 shadow-xs">
+        <div className="rounded-xl bg-surface-container-lowest p-3.5 border border-slate-200/80 shadow-xs">
           <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
             Venue / Room
           </span>
@@ -687,7 +687,7 @@ export function StudentDefenseCard({ defense, projectStatus, evaluations = [] })
           {defense.examinerIds?.map((examiner) => (
             <div
               key={examiner._id || examiner}
-              className="flex items-center gap-2.5 rounded-xl bg-white p-3 border border-slate-200/80"
+              className="flex items-center gap-2.5 rounded-xl bg-surface-container-lowest p-3 border border-slate-200/80"
             >
               <div className="grid h-8 w-8 place-items-center rounded-lg bg-violet-100 text-xs font-bold text-violet-700">
                 {(examiner.name || 'E')[0]}
@@ -815,7 +815,7 @@ export function ExaminerWorkspace({
             return (
               <article
                 key={defense._id}
-                className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm hover:border-brand-300 transition flex flex-col gap-4"
+                className="rounded-2xl border border-slate-200 bg-surface-container-lowest p-6 shadow-sm hover:border-brand-300 transition flex flex-col gap-4"
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
@@ -879,7 +879,7 @@ export function ExaminerWorkspace({
                     onClick={() => setSelectedDefenseForEval(defense)}
                     className={`flex items-center gap-2 rounded-xl px-4 py-2 font-bold transition shadow-xs ${
                       isEvaluated
-                        ? 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+                        ? 'border border-slate-300 bg-surface-container-lowest text-slate-700 hover:bg-slate-50'
                         : 'bg-primary-container text-white hover:brightness-110'
                     }`}
                   >

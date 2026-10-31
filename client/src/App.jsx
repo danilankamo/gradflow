@@ -34,6 +34,22 @@ function Icon({ name, size = 18, fill = false, className = '' }) {
   );
 }
 
+function ThemeToggle({ theme, onToggle, className = '' }) {
+  const nextTheme = theme === 'dark' ? 'light' : 'dark';
+
+  return (
+    <button
+      className={`button button-quiet ${className}`.trim()}
+      type="button"
+      onClick={onToggle}
+      aria-label={`Switch to ${nextTheme} theme`}
+      title={`Switch to ${nextTheme} theme`}
+    >
+      <Icon name={theme === 'dark' ? 'light_mode' : 'dark_mode'} size={20} />
+    </button>
+  );
+}
+
 function NotificationsPanel({
   notifications,
   loading,
@@ -73,7 +89,7 @@ function NotificationsPanel({
               <article
                 key={notification._id}
                 className={`rounded-xl border p-4 shadow-sm ${
-                  notification.isRead ? 'border-slate-200 bg-white' : 'border-brand-200 bg-brand-50/60'
+                  notification.isRead ? 'border-slate-200 bg-surface-container-lowest' : 'border-brand-200 bg-brand-50/60'
                 }`}
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
@@ -158,13 +174,16 @@ const authField = 'w-full rounded-lg border-0 bg-surface-container-lowest px-3 p
 const authFieldWithIcon = 'w-full rounded-lg border-0 bg-surface-container-lowest py-2.5 pl-10 pr-3 text-sm text-on-surface shadow-sm transition-shadow outline-none placeholder:text-on-surface-variant focus:border-0 focus:ring-0 focus:shadow-md';
 const authPasswordField = 'w-full rounded-lg border-0 bg-surface-container-lowest py-2.5 pl-10 pr-10 text-sm text-on-surface shadow-sm transition-shadow outline-none placeholder:text-on-surface-variant focus:border-0 focus:ring-0 focus:shadow-md';
 
-function AuthScreen({ authMode, setAuthMode, authForm, setAuthForm, authRole, setAuthRole, busy, error, onSubmit }) {
+function AuthScreen({ authMode, setAuthMode, authForm, setAuthForm, authRole, setAuthRole, busy, error, onSubmit, theme, onToggleTheme }) {
   const [showPassword, setShowPassword] = useState(false);
   const update = (field) => (event) => setAuthForm({ ...authForm, [field]: event.target.value });
   const activeRole = AUTH_ROLES.find((role) => role.id === authRole) || AUTH_ROLES[0];
 
   return (
     <section className="mx-auto flex w-full max-w-lg flex-col gap-5 py-2">
+      <div className="flex justify-end">
+        <ThemeToggle theme={theme} onToggle={onToggleTheme} />
+      </div>
       <header className="flex flex-col items-center text-center">
         <div className="relative mb-3 flex h-20 w-20 items-center justify-center rounded-full bg-surface-container shadow-sm">
           <span className="brand-mark h-14 w-14 rounded-full text-2xl">G</span>
@@ -437,6 +456,11 @@ function App() {
   const [authMode, setAuthMode] = useState('login');
   const [authRole, setAuthRole] = useState('student');
   const [authForm, setAuthForm] = useState({ name: '', email: '', password: '', department: '', studentId: '' });
+  const [theme, setTheme] = useState(() => {
+    const stored = localStorage.getItem('gradflow-theme');
+    if (stored === 'dark' || stored === 'light') return stored;
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  });
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(() => localStorage.getItem('gradflow-token') || '');
   const [route, setRoute] = useState(() => window.location.hash.slice(1) || 'overview');
@@ -471,6 +495,16 @@ function App() {
   const [deliverablesLoading, setDeliverablesLoading] = useState(false);
   const [deliverablesError, setDeliverablesError] = useState('');
   const deliverableRequest = useRef(0);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const isDark = theme === 'dark';
+    root.classList.toggle('dark', isDark);
+    root.style.colorScheme = isDark ? 'dark' : 'light';
+    localStorage.setItem('gradflow-theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => setTheme((current) => (current === 'dark' ? 'light' : 'dark'));
 
   const apiOptions = useCallback((method = 'GET', body) => ({
     method,
@@ -1152,6 +1186,7 @@ function App() {
           </div>
           <div className="account">
             <span>{user.name}<small>{user.role}</small></span>
+            <ThemeToggle theme={theme} onToggle={toggleTheme} />
             <button
               className="button button-quiet relative"
               type="button"
@@ -1190,6 +1225,8 @@ function App() {
           busy={busy}
           error={error}
           onSubmit={handleAuth}
+          theme={theme}
+          onToggleTheme={toggleTheme}
         />
       ) : (
         <section className="workspace">
@@ -1376,7 +1413,7 @@ function App() {
                   {defenses.map((defense) => (
                     <article
                       key={defense._id}
-                      className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+                      className="rounded-2xl border border-slate-200 bg-surface-container-lowest p-5 shadow-sm"
                     >
                       <div className="flex items-center justify-between mb-2">
                         <span className={`status-badge status-${defense.status}`}>

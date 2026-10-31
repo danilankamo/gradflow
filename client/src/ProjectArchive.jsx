@@ -55,21 +55,21 @@ function ProjectArchive({ projects, loading }) {
       </header>
 
       <div className="grid gap-3 sm:grid-cols-3">
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="rounded-xl border border-slate-200 bg-surface-container-lowest p-4 shadow-sm">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Completed projects</p>
           <p className="mt-2 text-2xl font-semibold text-slate-900">{projects.length}</p>
         </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="rounded-xl border border-slate-200 bg-surface-container-lowest p-4 shadow-sm">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Departments represented</p>
           <p className="mt-2 text-2xl font-semibold text-slate-900">{departments.length}</p>
         </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="rounded-xl border border-slate-200 bg-surface-container-lowest p-4 shadow-sm">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Average final score</p>
           <p className="mt-2 text-2xl font-semibold text-slate-900">{averageScore}</p>
         </div>
       </div>
 
-      <div className="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-[minmax(0,1fr)_12rem_12rem]">
+      <div className="grid gap-3 rounded-xl border border-slate-200 bg-surface-container-lowest p-4 shadow-sm md:grid-cols-[minmax(0,1fr)_12rem_12rem]">
         <label>
           Search archive
           <input
@@ -112,7 +112,7 @@ function ProjectArchive({ projects, loading }) {
           {filteredProjects.map((project) => {
             const expanded = expandedProjectId === project._id;
             return (
-              <article key={project._id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <article key={project._id} className="overflow-hidden rounded-2xl border border-slate-200 bg-surface-container-lowest shadow-sm">
                 <div className="grid gap-4 p-5 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">

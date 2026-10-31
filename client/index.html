@@ -13,6 +13,18 @@
       content="GradFlow — graduation project lifecycle management for students, supervisors, and coordinators."
     />
     <title>GradFlow — Graduation Project Workspace</title>
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem('gradflow-theme');
+          var dark = stored ? stored === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+          if (dark) document.documentElement.classList.add('dark');
+          document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
+        } catch (error) {
+          document.documentElement.style.colorScheme = 'light';
+        }
+      })();
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link

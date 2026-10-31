@@ -527,7 +527,7 @@ export default function ExaminerEvaluationSuite({
                       onChange={(e) =>
                         handleScoreChange(criterion.id, criterion.weight, e.target.value)
                       }
-                      className="w-16 rounded border border-outline-variant bg-white px-2 py-1 text-center font-bold text-primary text-sm shadow-xs focus:ring-2 focus:ring-secondary focus:outline-none disabled:bg-slate-100"
+                      className="w-16 rounded border border-outline-variant bg-surface-container-lowest px-2 py-1 text-center font-bold text-primary text-sm shadow-xs focus:ring-2 focus:ring-secondary focus:outline-none disabled:bg-slate-100"
                     />
                     <span className="text-xs font-semibold text-slate-400">/ {criterion.weight}</span>
                   </div>
@@ -698,7 +698,7 @@ export default function ExaminerEvaluationSuite({
       {/* CONFIRMATION MODAL */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
-          <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="evaluation-confirm-title" className="w-full max-h-[90dvh] overflow-y-auto max-w-lg rounded-2xl border border-outline-variant bg-white p-6 shadow-2xl space-y-4">
+          <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="evaluation-confirm-title" className="w-full max-h-[90dvh] overflow-y-auto max-w-lg rounded-2xl border border-outline-variant bg-surface-container-lowest p-6 shadow-2xl space-y-4">
             <div className="flex items-start gap-3">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-surface-container text-primary">
                 <Icon name="gavel" size={24} className="text-secondary" />
