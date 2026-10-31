@@ -4,5 +4,9 @@
   "workspaces": [
     "client",
     "server"
-  ]
+  ],
+  "scripts": {
+    "seed:demo": "node scripts/seed-demo.js",
+    "smoke:test": "node scripts/smoke-test.js"
+  }
 }

@@ -6,8 +6,29 @@
 
 Built as an individual-developer MVP, GradFlow focuses on one clearly defined workflow with appropriate roles, security controls, and scalable architecture—delivering a complete, deployed prototype suitable for a university graduation-project ecosystem.
 
+---
+
+## 🌐 Live Production Deployment
+
+- **Frontend App:** [https://gradflow-gamma.vercel.app](https://gradflow-gamma.vercel.app)
+- **Backend API:** [https://gradflow-ii8n.onrender.com](https://gradflow-ii8n.onrender.com)
+- **API Health Endpoint:** [https://gradflow-ii8n.onrender.com/](https://gradflow-ii8n.onrender.com/)
+
+---
+
+## 🎯 Demo & Presentation Resources
+
+- **Demo Accounts Reference:** [`DEMO_ACCOUNTS.md`](./DEMO_ACCOUNTS.md) — 4 primary role accounts + 4 backup accounts with uniform password `Password123!` and 5 pre-staged workflow states.
+- **Timed Walkthrough Guide:** [`DEMO_SCRIPT.md`](./DEMO_SCRIPT.md) — 11-minute presentation script with click-by-click instructions, talking points, and instant fallbacks.
+- **Automated Smoke Test:** Run `npm run smoke:test` against production to verify all 17 live health, auth, and lifecycle checks.
+- **Demo Seeding / Reset:** Run `npm run seed:demo` (or `npm run seed:demo --reset` to restore fresh staged data).
+
+---
+
 ## Table of Contents
 
+- [Live Production Deployment](#-live-production-deployment)
+- [Demo & Presentation Resources](#-demo--presentation-resources)
 - [Tech Stack](#tech-stack)
 - [Getting Started](#getting-started)
 - [Available Scripts](#available-scripts)
@@ -19,8 +40,9 @@ Built as an individual-developer MVP, GradFlow focuses on one clearly defined wo
 - [API Endpoints](#api-endpoints)
 - [Database Schema](#database-schema)
 - [Security](#security)
-- [Testing](#testing)
+- [Testing & Smoke Tests](#testing)
 - [Deployment](#deployment)
+- [Known Issues](#known-issues)
 - [Development Timeline](#development-timeline)
 - [Contributing](#contributing)
 
@@ -105,6 +127,14 @@ npm run dev
 The app runs at `http://localhost:5173`
 
 ## Available Scripts
+
+### Root Workspace (Repository Root)
+
+| Command | Description |
+| --------- | ------------- |
+| `npm run seed:demo` | Seed 8 demo accounts + 5 staged workflow states into MongoDB Atlas |
+| `node scripts/seed-demo.js --reset` | Non-destructive reset: purge demo records only and reseed staged states |
+| `npm run smoke:test` | Run 17-point automated E2E smoke test against live production deployment |
 
 ### Backend (server/)
 
@@ -632,6 +662,20 @@ npm test
 2. Add IP whitelist for backend
 3. Create database user
 4. Update `MONGODB_URI` in backend env
+
+## Known Issues & Operational Notes
+
+The following items are documented for transparency and operational awareness. None of these items are demo-blocking defects:
+
+1. **Hosting Provider Cold Starts (Render Free Tier):**
+   - Inactive backend instances sleep after 15 minutes of idle time. The initial wake-up request can take 35–50 seconds.
+   - *Operational Mitigation:* Issue a warm-up ping (`curl -s https://gradflow-ii8n.onrender.com/`) approximately 5 minutes before demonstrations.
+2. **Milestone Deliverable Storage Fallback:**
+   - Deliverables store to Cloudinary remote media storage when configured; otherwise, the server safely falls back to local container disk storage (`uploads/`). On ephemeral free tiers without persistent volumes, local uploaded files do not persist across redeployments, whereas submission metadata and GitHub links remain fully persistent in MongoDB Atlas.
+3. **In-App Notification Scope:**
+   - All workflow notifications are recorded and rendered in-app through the topbar bell and `#notifications` panel. External SMTP email delivery is intentionally omitted from the MVP scope per the Day 17 architecture specification.
+4. **Mobile Layout Density:**
+   - On ultra-compact mobile viewports (< 360px), multi-column data grids (such as supervisor workload and defense schedules) display with horizontal swipe scrolling to preserve data integrity.
 
 ## Development Timeline
 
