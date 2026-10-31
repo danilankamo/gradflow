@@ -48,6 +48,139 @@
   --color-brand-900: #312e81;
 }
 
+.dark {
+  color-scheme: dark;
+
+  --color-background: #0b1220;
+
+  --color-surface: #0b1220;
+  --color-surface-container-lowest: #111b2e;
+  --color-surface-container-low: #162135;
+  --color-surface-container: #1b293f;
+  --color-surface-container-high: #223249;
+  --color-surface-container-highest: #2a3c56;
+
+  --color-on-surface: #e2e8f0;
+  --color-on-surface-variant: #9aa8bd;
+  --color-outline: #7a879b;
+  --color-outline-variant: #334155;
+
+  --color-primary: #e2e8f0;
+  --color-primary-container: #4338ca;
+  --color-on-primary: #ffffff;
+  --color-on-primary-container: #c7d2fe;
+
+  --color-secondary: #a5b4fc;
+  --color-secondary-container: #3730a3;
+  --color-on-secondary-container: #e0e7ff;
+
+  --color-tertiary: #6bd8cb;
+  --color-on-tertiary: #042f2b;
+  --color-tertiary-container: #0f3d38;
+  --color-tertiary-fixed-dim: #6bd8cb;
+  --color-on-tertiary-container: #5eead4;
+
+  --color-error: #f87171;
+  --color-error-container: #4c1d1d;
+  --color-on-error: #450a0a;
+  --color-on-error-container: #fecaca;
+
+  --color-brand-50: #1e1b4b;
+  --color-brand-100: #272460;
+  --color-brand-200: #3730a3;
+  --color-brand-300: #4338ca;
+  --color-brand-700: #a5b4fc;
+  --color-brand-800: #c7d2fe;
+  --color-brand-900: #e0e7ff;
+
+  --color-slate-50: #0f172a;
+  --color-slate-100: #172033;
+  --color-slate-200: #243147;
+  --color-slate-300: #334155;
+  --color-slate-400: #8391a7;
+  --color-slate-500: #9aa8bd;
+  --color-slate-600: #b7c3d6;
+  --color-slate-700: #d5ddeb;
+  --color-slate-800: #e8edf6;
+  --color-slate-900: #f5f8fc;
+
+  --color-amber-50: #451a03;
+  --color-amber-100: #4a2106;
+  --color-amber-200: #92400e;
+  --color-amber-700: #fbbf24;
+  --color-amber-800: #fcd34d;
+  --color-amber-900: #fde68a;
+
+  --color-rose-50: #4c0519;
+  --color-rose-100: #5c0a20;
+  --color-rose-200: #9f1239;
+  --color-rose-700: #fda4af;
+  --color-rose-800: #fecdd3;
+  --color-rose-900: #ffe4e6;
+
+  --color-emerald-50: #022c22;
+  --color-emerald-100: #043b2c;
+  --color-emerald-200: #065f46;
+  --color-emerald-700: #6ee7b7;
+  --color-emerald-800: #a7f3d0;
+  --color-emerald-900: #d1fae5;
+
+  --color-sky-50: #082f49;
+  --color-sky-100: #0c3a56;
+  --color-sky-200: #075985;
+  --color-sky-700: #7dd3fc;
+  --color-sky-800: #bae6fd;
+  --color-sky-900: #e0f2fe;
+
+  --color-orange-50: #431407;
+  --color-orange-100: #4c1a0a;
+  --color-orange-200: #9a3412;
+  --color-orange-700: #fdba74;
+  --color-orange-800: #fed7aa;
+  --color-orange-900: #ffedd5;
+
+  --color-cyan-50: #083344;
+  --color-cyan-100: #0a3d50;
+  --color-cyan-200: #155e75;
+  --color-cyan-700: #67e8f9;
+  --color-cyan-800: #a5f3fc;
+  --color-cyan-900: #cffafe;
+
+  --color-violet-50: #2e1065;
+  --color-violet-100: #3b1478;
+  --color-violet-200: #5b21b6;
+  --color-violet-700: #c4b5fd;
+  --color-violet-800: #ddd6fe;
+  --color-violet-900: #ede9fe;
+}
+
+.dark .bg-slate-900,
+.dark .bg-slate-900\/60 {
+  background-color: rgb(2 6 23 / 0.72);
+}
+
+.dark .text-brand-600,
+.dark .eyebrow {
+  color: var(--color-brand-400);
+}
+
+.dark .eyebrow.text-violet-700 {
+  color: var(--color-violet-700);
+}
+
+.dark .supervisor-card small,
+.dark .submission-links a {
+  color: var(--color-brand-400);
+}
+
+.dark .button-primary:hover {
+  background-color: #3730a3;
+}
+
+.dark .button-primary:active {
+  background-color: #312e81;
+}
+
 @layer base {
   html {
     -webkit-text-size-adjust: 100%;
@@ -81,7 +214,7 @@
   input:not([type="checkbox"]):not([type="radio"]),
   textarea,
   select {
-    @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/30 focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400;
+    @apply w-full rounded-lg border border-slate-300 bg-surface-container-lowest px-3 py-2 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/30 focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400;
   }
 
   textarea {
@@ -89,7 +222,7 @@
   }
 
   :where(button, a, [role="button"]):focus-visible {
-    @apply outline-none ring-2 ring-brand-500 ring-offset-2 ring-offset-white;
+    @apply outline-none ring-2 ring-brand-500 ring-offset-2 ring-offset-background;
   }
 }
 
@@ -100,7 +233,7 @@
   }
 
   .topbar {
-    @apply mb-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200/70 bg-white/80 px-5 py-4 shadow-sm backdrop-blur;
+    @apply mb-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200/70 bg-surface-container-lowest/80 px-5 py-4 shadow-sm backdrop-blur;
   }
 
   .brand {
@@ -174,7 +307,7 @@
   }
 
   .button-quiet {
-    @apply border border-slate-300 bg-white text-slate-700 hover:bg-slate-50;
+    @apply border border-slate-300 bg-surface-container-lowest text-slate-700 hover:bg-slate-50;
   }
 
   .button-success {
@@ -230,7 +363,7 @@
 
   /* ---------- Navigation ---------- */
   .route-nav {
-    @apply flex flex-wrap gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-sm;
+    @apply flex flex-wrap gap-1 rounded-xl border border-slate-200 bg-surface-container-lowest p-1 shadow-sm;
   }
 
   .route-nav button {
@@ -296,7 +429,7 @@
 
   /* ---------- Cards & stats ---------- */
   .stat-card {
-    @apply flex flex-col gap-1 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm;
+    @apply flex flex-col gap-1 rounded-2xl border border-slate-200 bg-surface-container-lowest p-5 shadow-sm;
   }
 
   .stat-card span {
@@ -320,7 +453,7 @@
   }
 
   .info-card {
-    @apply rounded-2xl border border-slate-200 bg-white p-6 shadow-sm;
+    @apply rounded-2xl border border-slate-200 bg-surface-container-lowest p-6 shadow-sm;
   }
 
   .info-card h3 {
@@ -332,7 +465,7 @@
   }
 
   .management-card {
-    @apply rounded-2xl border border-slate-200 bg-white p-6 shadow-sm;
+    @apply rounded-2xl border border-slate-200 bg-surface-container-lowest p-6 shadow-sm;
   }
 
   .management-card h3 {
@@ -345,7 +478,7 @@
   }
 
   .empty-detail {
-    @apply rounded-2xl border border-dashed border-slate-200 bg-white p-10 text-center;
+    @apply rounded-2xl border border-dashed border-slate-200 bg-surface-container-lowest p-10 text-center;
   }
 
   .empty-detail h3 {
@@ -358,7 +491,7 @@
 
   /* ---------- Role dashboards ---------- */
   .dashboard-welcome {
-    @apply rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7;
+    @apply rounded-2xl border border-slate-200 bg-surface-container-lowest p-5 shadow-sm sm:p-7;
   }
 
   .dashboard-welcome h2 {
@@ -378,7 +511,7 @@
   }
 
   .dashboard-detail-card {
-    @apply flex min-h-24 flex-col items-start justify-center gap-1 rounded-xl border border-slate-200 bg-white p-4 text-left;
+    @apply flex min-h-24 flex-col items-start justify-center gap-1 rounded-xl border border-slate-200 bg-surface-container-lowest p-4 text-left;
   }
 
   .dashboard-detail-card > span {
@@ -477,7 +610,7 @@
   }
 
   .proposal-list {
-    @apply flex max-h-[36rem] flex-col gap-2 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-4 shadow-sm;
+    @apply flex max-h-[36rem] flex-col gap-2 overflow-y-auto rounded-2xl border border-slate-200 bg-surface-container-lowest p-4 shadow-sm;
   }
 
   .proposal-list-item {
@@ -497,7 +630,7 @@
   }
 
   .proposal-detail {
-    @apply rounded-2xl border border-slate-200 bg-white p-6 shadow-sm;
+    @apply rounded-2xl border border-slate-200 bg-surface-container-lowest p-6 shadow-sm;
   }
 
   .student-byline {
@@ -602,7 +735,7 @@
   }
 
   .assigned-project-card {
-    @apply flex w-full flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:border-brand-300 hover:shadow-md;
+    @apply flex w-full flex-col gap-3 rounded-2xl border border-slate-200 bg-surface-container-lowest p-5 text-left shadow-sm transition hover:border-brand-300 hover:shadow-md;
   }
 
   .assigned-project-card p {
@@ -619,7 +752,7 @@
   }
 
   .milestone-card {
-    @apply rounded-2xl border border-slate-200 bg-white p-6 shadow-sm;
+    @apply rounded-2xl border border-slate-200 bg-surface-container-lowest p-6 shadow-sm;
   }
 
   .submission-list {
@@ -675,11 +808,11 @@
 .page-content { display: grid; gap: 1.5rem; }
 .page-content[hidden] { display: none; }
 .button, .route-nav button { min-height: 44px; }
-.breadcrumbs { display: flex; flex-wrap: wrap; gap: .65rem; font-size: .875rem; color: #475569; }
-.breadcrumbs button { color: #4338ca; text-decoration: underline; text-underline-offset: 3px; }
-.loading-state { padding: 2rem; border: 1px solid #e2e8f0; border-radius: 1rem; background: white; text-align: center; color: #475569; }
-.loading-state::before { content: ''; display: inline-block; width: 1rem; height: 1rem; margin-right: .75rem; border: 2px solid #c7d2fe; border-top-color: #4f46e5; border-radius: 50%; animation: loading-spin .8s linear infinite; }
-.skip-link { position: fixed; top: .5rem; left: .5rem; z-index: 100; transform: translateY(-200%); padding: .75rem; background: white; border: 2px solid #4f46e5; border-radius: .5rem; }
+.breadcrumbs { display: flex; flex-wrap: wrap; gap: .65rem; font-size: .875rem; color: var(--color-slate-600); }
+.breadcrumbs button { color: var(--color-brand-700); text-decoration: underline; text-underline-offset: 3px; }
+.loading-state { padding: 2rem; border: 1px solid var(--color-slate-200); border-radius: 1rem; background: var(--color-surface-container-lowest); text-align: center; color: var(--color-slate-600); }
+.loading-state::before { content: ''; display: inline-block; width: 1rem; height: 1rem; margin-right: .75rem; border: 2px solid var(--color-brand-200); border-top-color: var(--color-brand-600); border-radius: 50%; animation: loading-spin .8s linear infinite; }
+.skip-link { position: fixed; top: .5rem; left: .5rem; z-index: 100; transform: translateY(-200%); padding: .75rem; background: var(--color-surface-container-lowest); border: 2px solid var(--color-brand-600); border-radius: .5rem; }
 .skip-link:focus { transform: translateY(0); }
 @keyframes loading-spin { to { transform: rotate(360deg); } }
 @media (max-width: 639px) {
