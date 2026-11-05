@@ -1,7 +1,10 @@
 # GradFlow
 
 <!-- markdownlint-disable MD013 MD040 MD060 -->
+Name: dani Jafer
+CTC Id: CTC-214-26
 
+propject presentation: https://drive.google.com/file/d/1mbP1lsCUGv9h7flEguJKtSj65xSvLhdZ/view?usp=sharing
 **GradFlow** is a web-based university graduation project lifecycle management system designed to centralize and simplify the process of managing final-year projects. The platform covers the essential workflow: proposal submission, departmental review, supervisor assignment, milestone tracking, deliverable evaluation, defense scheduling, and final assessment.
 
 Built as an individual-developer MVP, GradFlow focuses on one clearly defined workflow with appropriate roles, security controls, and scalable architecture—delivering a complete, deployed prototype suitable for a university graduation-project ecosystem.
